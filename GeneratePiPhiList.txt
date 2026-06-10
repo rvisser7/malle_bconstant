@@ -25,12 +25,14 @@ NG:=NormalSubgroups(G);
 NC:=Subgroups(C);
 for i:=1 to #NG do
     N:=NG[i]`subgroup;
+    if IsAbelian(quo<G|N>) then
     for j:=1 to #NC do
          D:=NC[j]`subgroup;
          if IsIsomorphic(AbelianQuotient(quo<G|N>), quo<C|D>) then         
              Include(~Box,i);break j;
          end if; 
     end for;
+    end if;
 end for;
 
 Pair:=[];
@@ -66,6 +68,8 @@ end function;
 /*giving G,C,d*/
 G:=WreathProduct(CyclicGroup(3),CyclicGroup(2));
 T:=Gpiphi(G);
+
+
 
 
 
