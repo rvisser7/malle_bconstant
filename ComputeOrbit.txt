@@ -1,0 +1,100 @@
+//Goal: compute orbits for all pi and phi
+
+/* Input: given an embedding problem, output an integer*/
+
+G:=WreathProduct(CyclicGroup(3),CyclicGroup(2));
+T:=Gpiphi(G);
+ebp:=T[1];
+
+/*Prepare Smin*/
+
+//use discriminant
+ind:=function(g)
+    C:=CycleStructure(g);
+    k:=0;n:=0;
+    for i:=1 to #C do
+       k:=k+C[i][2];
+       n:=n+C[i][2]*C[i][1];
+    end for;
+    return n-k;
+end function;
+MinIndex:=function(G)
+    A:=[];a:=#G;
+    for g in G do
+        if g ne Id(G) and ind(g) lt a then
+            a:=ind(g);
+            A:=[g];
+        elif g ne Id(G) and ind(g) eq a then
+            Append(~A,g);
+        end if;
+    end for;
+    return a,A;
+end function;
+a,Smin:=MinIndex(G);
+
+//using product of ramified primes
+Smin:=[];
+for x in G do
+    if Order(x) gt 1 then Include(~Smin, x);end if;
+end for;
+
+
+//compute orbits function
+bpiphi:=function(ebp, Smin)
+
+B:=ebp`B;
+G:=ebp`G;
+C:=ebp`C;
+f:=ebp`f;
+pi:=ebp`pi;
+phi:=ebp`phi;
+
+//Constructs the fiber product CGfiber
+H:=sub<C|Id(C)>;
+r,CP:=CosetAction(C,H);
+r:=Inverse(r);//r is now mapping CP to C
+CG,into,onto:=DirectProduct(G,CP);
+S:=[];
+for g in CG do
+x:=onto[1](g);
+a:=onto[2](g);
+a:=r(a);
+if pi(x) eq phi(a) then Include(~S,g);end if;
+end for;
+CGfiber:=sub<CG|S>;
+
+//Compute 
+Sminpi:=[];
+N:=Kernel(pi);
+for s in Smin do
+   if s in N then Include(~Sminpi,s);end if;
+end for;
+
+if #Sminpi gt 0 then
+//Compute orbits via fixed points counting
+fix:=0;
+for g in CGfiber do
+x:=onto[1](g);
+a:=onto[2](g);a:=r(a);
+a:=IntegerRing()!f(a);
+k:=0;
+for s in Sminpi do
+     if s in N then
+          if x*s*x^(-1) eq s^a then k:=k+1;end if;
+     end if;
+end for;
+fix:=fix+k;
+end for;
+Orb:=fix/Order(CGfiber);
+bpiphi:=Orb;
+
+else bpiphi:=0;
+end if;
+
+return #Sminpi, bpiphi;
+end function;
+
+
+
+
+

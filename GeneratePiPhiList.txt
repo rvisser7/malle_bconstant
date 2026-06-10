@@ -1,0 +1,79 @@
+//Goal: generate all \pi and \phi
+
+/* Input: (G, class function), Output: All possible (\pi,\phi,\iota) where \iota is an isomorphism between two images*/
+
+
+/*Output structure: GrpAb, GrpPerm, GrpAb, Map, Map, Map*/
+EmbeddingProb:= recformat<
+    B,
+    G,
+    C,
+    f,
+    pi,
+    phi
+>;
+
+
+Gpiphi:=function(G)
+d:=Exponent(G);
+C,f:=MultiplicativeGroup(Integers(d));
+H:=sub<C|Id(C)>;
+
+/*Find all pairs of subgroups (HG,HC) such that G/HG and C/HC are isomorphic*/
+Box:=[];
+NG:=NormalSubgroups(G);
+NC:=Subgroups(C);
+for i:=1 to #NG do
+    N:=NG[i]`subgroup;
+    for j:=1 to #NC do
+         D:=NC[j]`subgroup;
+         if IsIsomorphic(AbelianQuotient(quo<G|N>), quo<C|D>) then         
+             Include(~Box,i);break j;
+         end if; 
+    end for;
+end for;
+
+Pair:=[];
+for i in Box do
+HG:=NG[i]`subgroup;
+QG,fQG:=quo<G|HG>;
+QGA,fQGA:=AbelianQuotient(QG);
+pi:=fQG*fQGA;
+
+CA,fCA:=AbelianQuotient(C);
+allphi,fallphi:=Hom(CA,QGA);
+for h in allphi do
+    if IsSurjective(fallphi(h)) then
+        phi:=fCA*fallphi(h);
+        ebp:= rec< EmbeddingProb |
+            B   := Codomain(pi),
+            G   := Domain(pi),
+            C   := Domain(phi),
+            f   :=f,
+            pi  := pi,
+            phi := phi
+        >;
+        Append(~Pair,ebp);
+    end if;
+end for;
+end for;
+return Pair;
+end function;
+
+
+/*Example*/
+
+/*giving G,C,d*/
+G:=WreathProduct(CyclicGroup(3),CyclicGroup(2));
+T:=Gpiphi(G);
+
+
+
+
+
+
+
+
+
+
+
