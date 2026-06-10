@@ -103,7 +103,7 @@ UnitInteger := function(c, f)
     return IntegerRing()!f(c);
 end function;
 
-
+/* Compute Frobenius p from C*/
 CyclotomicFrobeniusAtPrime := function(C, f, d, p)
 
     e := Valuation(d, p);
@@ -153,7 +153,6 @@ CyclotomicInertiaAtPrime := function(C, f, d, p)
 
 end function;
 
-
 PrimeToPPartOfFiniteAbelianSubgroup := function(H, p)
 
     gens := [];
@@ -163,9 +162,10 @@ PrimeToPPartOfFiniteAbelianSubgroup := function(H, p)
         v := Valuation(n, p);
 
         /*
-           h^(p^v) has order prime to p.
+           In an additive abelian group, (p^v)*h has order prime to p.
+           Do NOT write h^(p^v).
         */
-        Append(~gens, h^(p^v));
+        Append(~gens, (p^v)*h);
     end for;
 
     return sub< H | gens >;
