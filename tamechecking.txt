@@ -1,0 +1,364 @@
+/********************************************************************
+  Local tame liftability for ebp = (B,G,C,f,pi,phi)
+
+  ebp fields come from GeneratePiPhiList:
+      B, G, C, f, pi, phi
+
+  The tame local group has presentation
+
+      < x, y | x y x^-1 = y^p >
+
+  Given images bX, bY in B, we test whether there exist lifts
+      X,Y in G
+  such that
+      pi(X) = bX,
+      pi(Y) = bY,
+      X*Y*X^-1 = Y^p.
+********************************************************************/
+
+
+HasPreimage := function(pi, b)
+    G := Domain(pi);
+    for g in G do
+        if pi(g) eq b then
+            return true, g;
+        end if;
+    end for;
+    return false, _;
+end function;
+
+
+IsLocalLiftableTameByBImages := function(ebp, p, bX, bY)
+
+    G  := ebp`G;
+    pi := ebp`pi;
+    N  := Kernel(pi);
+
+    okX, X0 := HasPreimage(pi, bX);
+    if not okX then
+        return false, "No lift of Frobenius image", _;
+    end if;
+
+    okY, Y0 := HasPreimage(pi, bY);
+    if not okY then
+        return false, "No lift of inertia image", _;
+    end if;
+
+    /*
+       Search inside the two cosets X0*N and Y0*N.
+       This is usually much faster than looping over all pairs in G x G.
+    */
+
+    for nX in N do
+        X := X0*nX;
+
+        for nY in N do
+            Y := Y0*nY;
+
+            if X*Y*X^(-1) eq Y^p then
+                return true, "Liftable", <X,Y>;
+            end if;
+
+        end for;
+    end for;
+
+    return false, "No pair of lifts satisfies tame relation", _;
+
+end function;
+
+
+IsLocalLiftableTameByCImages := function(ebp, p, xC, yC)
+
+    phi := ebp`phi;
+
+    bX := phi(xC);
+    bY := phi(yC);
+
+    return IsLocalLiftableTameByBImages(ebp, p, bX, bY);
+
+end function;
+
+
+/********************************************************************
+  Cyclotomic local data.
+
+  C = (Z/dZ)^*, with f : C -> Integers(d)^* from Magma.
+
+  At a rational prime p | d, write
+
+      d = p^e * m,  gcd(p,m)=1.
+
+  The decomposition group in Q(mu_d)/Q at p maps to:
+
+      inertia: elements a = 1 mod m,
+      Frobenius on the unramified part: a = p mod m,
+      and a = 1 mod p^e.
+
+  We only keep the tame inertia part, i.e. the prime-to-p part
+  of the inertia image.
+********************************************************************/
+
+
+UnitInteger := function(c, f)
+    return IntegerRing()!f(c);
+end function;
+
+
+CyclotomicFrobeniusAtPrime := function(C, f, d, p)
+
+    e := Valuation(d, p);
+    ppow := p^e;
+    m := d div ppow;
+
+    for c in C do
+        a := UnitInteger(c, f);
+
+        cond_p_part := (a mod ppow) eq 1;
+
+        if m eq 1 then
+            cond_m_part := true;
+        else
+            cond_m_part := (a mod m) eq (p mod m);
+        end if;
+
+        if cond_p_part and cond_m_part then
+            return c;
+        end if;
+    end for;
+
+    error "Could not find cyclotomic Frobenius element.";
+
+end function;
+
+
+CyclotomicInertiaAtPrime := function(C, f, d, p)
+
+    e := Valuation(d, p);
+    ppow := p^e;
+    m := d div ppow;
+
+    gens := [];
+
+    for c in C do
+        a := UnitInteger(c, f);
+
+        if m eq 1 then
+            Append(~gens, c);
+        elif (a mod m) eq 1 then
+            Append(~gens, c);
+        end if;
+    end for;
+
+    return sub< C | gens >;
+
+end function;
+
+
+PrimeToPPartOfFiniteAbelianSubgroup := function(H, p)
+
+    gens := [];
+
+    for h in Generators(H) do
+        n := Order(h);
+        v := Valuation(n, p);
+
+        /*
+           h^(p^v) has order prime to p.
+        */
+        Append(~gens, h^(p^v));
+    end for;
+
+    return sub< H | gens >;
+
+end function;
+
+
+TameInertiaImageInBAtPrime := function(ebp, p)
+
+    G   := ebp`G;
+    C   := ebp`C;
+    f   := ebp`f;
+    phi := ebp`phi;
+
+    d := Exponent(G);
+
+    I := CyclotomicInertiaAtPrime(C, f, d, p);
+    Itame := PrimeToPPartOfFiniteAbelianSubgroup(I, p);
+
+    H := sub< ebp`B | [ phi(t) : t in Generators(Itame) ] >;
+
+    return H;
+
+end function;
+
+
+/********************************************************************
+  Local test at one rational prime p.
+
+  This checks only the tame part of the local ramification.
+  If the tame inertia image is trivial, the test reduces to lifting
+  Frobenius with Y = 1.
+
+  If the tame inertia image is nontrivial cyclic, we test all generators
+  of that cyclic image. This avoids choosing a particular tame inertia
+  generator.
+********************************************************************/
+
+
+IsCyclotomicTameLocallyLiftableAtPrime := function(ebp, p)
+
+    G   := ebp`G;
+    C   := ebp`C;
+    f   := ebp`f;
+    phi := ebp`phi;
+    B   := ebp`B;
+
+    d := Exponent(G);
+
+    xC := CyclotomicFrobeniusAtPrime(C, f, d, p);
+    bX := phi(xC);
+
+    Htame := TameInertiaImageInBAtPrime(ebp, p);
+
+    if not IsCyclic(Htame) then
+        return false, "Tame inertia image is not cyclic", _;
+    end if;
+
+    if #Htame eq 1 then
+        bY := Id(B);
+        return IsLocalLiftableTameByBImages(ebp, p, bX, bY);
+    end if;
+
+    gensHtame := [ h : h in Htame | Order(h) eq #Htame ];
+
+    for h in gensHtame do
+        bY := B!h;
+
+        ok, msg, wit := IsLocalLiftableTameByBImages(ebp, p, bX, bY);
+
+        if ok then
+            return true, "Liftable for some tame inertia generator", wit;
+        end if;
+    end for;
+
+    return false, "No generator of tame inertia image is locally liftable", _;
+
+end function;
+
+
+/********************************************************************
+  Check all tamely ramified finite primes.
+
+  Here we look at primes p | d where the tame inertia image in B is
+  nontrivial. Wild p-primary inertia is deliberately ignored here.
+
+  Output:
+      Boolean,
+      list of reports <p, ok, message>.
+********************************************************************/
+
+
+TamelyRamifiedPrimesForEbp := function(ebp)
+
+    G := ebp`G;
+    d := Exponent(G);
+
+    primes := [];
+
+    for q in Factorization(d) do
+        p := q[1];
+
+        Htame := TameInertiaImageInBAtPrime(ebp, p);
+
+        if #Htame gt 1 then
+            Append(~primes, p);
+        end if;
+    end for;
+
+    return primes;
+
+end function;
+
+
+IsLocallyLiftableAtAllTameFinitePlaces := function(ebp)
+
+    primes := TamelyRamifiedPrimesForEbp(ebp);
+
+    reports := [];
+
+    for p in primes do
+        ok, msg, wit := IsCyclotomicTameLocallyLiftableAtPrime(ebp, p);
+
+        Append(~reports, <p, ok, msg>);
+
+        if not ok then
+            return false, reports;
+        end if;
+    end for;
+
+    return true, reports;
+
+end function;
+
+
+/********************************************************************
+  Optional real-place test.
+
+  At infinity, complex conjugation corresponds to -1 in (Z/dZ)^*.
+  The local group is C2, so we ask whether phi(-1) has a lift in G
+  of order dividing 2.
+********************************************************************/
+
+
+IsRealLocallyLiftable := function(ebp)
+
+    G   := ebp`G;
+    C   := ebp`C;
+    f   := ebp`f;
+    phi := ebp`phi;
+    pi  := ebp`pi;
+
+    d := Exponent(G);
+
+    found := false;
+    cminus := Id(C);
+
+    for c in C do
+        a := UnitInteger(c, f);
+        if (a mod d) eq ((-1) mod d) then
+            found := true;
+            cminus := c;
+            break;
+        end if;
+    end for;
+
+    if not found then
+        return true, "No -1 element found; probably d <= 2", _;
+    end if;
+
+    b := phi(cminus);
+
+    for g in G do
+        if pi(g) eq b and g^2 eq Id(G) then
+            return true, "Real place liftable", g;
+        end if;
+    end for;
+
+    return false, "Real place not liftable", _;
+
+end function;
+
+
+/********************************************************************
+  Combined finite tame + real test.
+********************************************************************/
+
+
+IsLocallyLiftableTameAndReal := function(ebp)
+
+    okFinite, finiteReports := IsLocallyLiftableAtAllTameFinitePlaces(ebp);
+    okReal, realMsg, realWitness := IsRealLocallyLiftable(ebp);
+
+    return okFinite and okReal, finiteReports, <okReal, realMsg>;
+
+end function;
