@@ -1,0 +1,712 @@
+/*****************************************************************************************
+
+    RunDegreeUpTo10_WithBM_BT_BW.m
+
+    Assumes previous files are loaded:
+
+        GeneratePiPhiList.m
+        ComputeOrbit.m
+        TameLocalLiftability.m
+
+    Previous files provide:
+        Gpiphi(G)
+        bpiphi(ebp, Smin)
+        IsLocallyLiftableTameAndReal(ebp)
+        CleanLocalLiftabilityReport(ebp)
+        WildInertiaImageInBAtPrime(ebp, p)
+
+*****************************************************************************************/
+
+
+/*****************************************************************************************
+    Discriminant index.
+*****************************************************************************************/
+
+DiscIndex := function(g)
+
+    C := CycleStructure(g);
+
+    k := 0;
+    n := 0;
+
+    for i := 1 to #C do
+        k +:= C[i][2];
+        n +:= C[i][1]*C[i][2];
+    end for;
+
+    return n-k;
+
+end function;
+
+
+/*****************************************************************************************
+    Minimal discriminant-index elements.
+*****************************************************************************************/
+
+DiscriminantSmin := function(G)
+
+    a := #G;
+    Smin := [];
+
+    for g in G do
+        if g ne Id(G) then
+            ig := DiscIndex(g);
+
+            if ig lt a then
+                a := ig;
+                Smin := [g];
+            elif ig eq a then
+                Append(~Smin, g);
+            end if;
+        end if;
+    end for;
+
+    return a, Smin;
+
+end function;
+
+
+/*****************************************************************************************
+    Does Smin generate G?
+*****************************************************************************************/
+
+SminGeneratesFullGroup := function(G, Smin)
+
+    if #Smin eq 0 then
+        return false;
+    end if;
+
+    H := sub< G | Smin >;
+
+    return #H eq #G;
+
+end function;
+
+
+/*****************************************************************************************
+    Compute Smin ∩ Ker(pi), before calling bpiphi.
+*****************************************************************************************/
+
+SminIntersectionKerPi := function(ebp, Smin)
+
+    pi := ebp`pi;
+    N  := Kernel(pi);
+
+    Sminpi := [];
+
+    for s in Smin do
+        if s in N then
+            Append(~Sminpi, s);
+        end if;
+    end for;
+
+    return Sminpi;
+
+end function;
+
+
+/*****************************************************************************************
+    Trivial quotient test.
+*****************************************************************************************/
+
+IsTrivialQuotientEbp := function(ebp)
+
+    return #ebp`B eq 1;
+
+end function;
+
+
+/*****************************************************************************************
+    Wildly ramified primes.
+
+    These are primes p | d where the p-primary inertia image in B is nontrivial.
+*****************************************************************************************/
+
+WildlyRamifiedPrimesForEbp := function(ebp)
+
+    G := ebp`G;
+    d := Exponent(G);
+
+    wildPrimes := [];
+
+    for q in Factorization(d) do
+        p := q[1];
+
+        Hwild := WildInertiaImageInBAtPrime(ebp, p);
+
+        if #Hwild gt 1 then
+            Append(~wildPrimes, p);
+        end if;
+    end for;
+
+    return wildPrimes;
+
+end function;
+
+
+/*****************************************************************************************
+    Passes checked local tests:
+        finite tame places + real place.
+
+    This does NOT check wild local liftability.
+*****************************************************************************************/
+
+PassesCheckedLocalTests := function(ebp)
+
+    ok, finiteReports, realReport := IsLocallyLiftableTameAndReal(ebp);
+
+    return ok;
+
+end function;
+
+
+/*****************************************************************************************
+    Record formats.
+*****************************************************************************************/
+
+CandidateFormat := recformat<
+    pair_index,
+    b_value,
+    wild_primes,
+    checked_local_report
+>;
+
+GroupResultFormat := recformat<
+    degree,
+    transitive_index,
+    group_order,
+    minimal_index,
+    number_of_Smin,
+    Smin_generates_G,
+    number_of_pairs,
+    b_M,
+    b_T,
+    BW_lower,
+    BW_local_upper,
+    candidates
+>;
+
+
+/*****************************************************************************************
+    Optimized analysis for one group using discriminant.
+
+    Improvements:
+
+        1. If ebp is trivial quotient B=1, do NOT run local checking.
+           It contributes b_M.
+
+        2. If b(pi,phi) <= b_M, do NOT run local checking.
+           Such a pair cannot improve b_W beyond b_M, so it is irrelevant
+           for detecting b_W > b_M.
+
+    Logic:
+
+        b_M:
+            b(pi,phi) for trivial quotient B=1.
+
+        b_T:
+            max b(pi,phi) among all pairs with Smin ∩ Ker(pi) nonempty,
+            without local checking.
+
+        BW_lower:
+            currently b_M.
+
+        BW_local_upper:
+            max of b_M and all b(pi,phi)>b_M passing finite tame + real tests.
+
+        candidates:
+            nontrivial pairs with b(pi,phi)>b_M passing checked local tests.
+*****************************************************************************************/
+
+AnalyzeOneGroupDiscriminantSafe := function(G, degree, transitive_index)
+
+    a, Smin := DiscriminantSmin(G);
+    sminGenerates := SminGeneratesFullGroup(G, Smin);
+
+    T := Gpiphi(G);
+
+    /*
+        First pass:
+            compute all relevant b(pi,phi),
+            get b_M and b_T,
+            store values so we do not recompute bpiphi.
+    */
+
+    relevantData := [];
+
+    bM := 0;
+    bT := 0;
+
+    for j := 1 to #T do
+
+        ebp := T[j];
+
+        /*
+            Only relevant to the main discriminant exponent if
+
+                Smin ∩ Ker(pi) != empty.
+        */
+
+        Sminpi := SminIntersectionKerPi(ebp, Smin);
+
+        if #Sminpi gt 0 then
+
+            numberSminInKer, bval := bpiphi(ebp, Smin);
+
+            if bval gt bT then
+                bT := bval;
+            end if;
+
+            if IsTrivialQuotientEbp(ebp) then
+                if bval gt bM then
+                    bM := bval;
+                end if;
+            end if;
+
+            Append(~relevantData, <j, bval, ebp>);
+
+        end if;
+
+    end for;
+
+    /*
+        Conservative lower bound is b_M.
+    */
+
+    BWlower := bM;
+    BWupperLocal := bM;
+
+    rawCandidates := [];
+
+    /*
+        Second pass:
+            only run local tests for pairs that could improve b_W, namely
+
+                nontrivial quotient,
+                b(pi,phi) > b_M.
+    */
+
+    for x in relevantData do
+
+        j := x[1];
+        bval := x[2];
+        ebp := x[3];
+
+        /*
+            Trivial quotient already accounted for by b_M.
+            No local testing needed.
+        */
+
+        if IsTrivialQuotientEbp(ebp) then
+            continue;
+        end if;
+
+        /*
+            If b(pi,phi) <= b_M, it cannot raise b_W above Malle's value.
+            No local testing needed.
+        */
+
+        if bval le bM then
+            continue;
+        end if;
+
+        /*
+            Now and only now run local checks.
+        */
+
+        okLocal := PassesCheckedLocalTests(ebp);
+
+        if okLocal then
+
+            if bval gt BWupperLocal then
+                BWupperLocal := bval;
+            end if;
+
+            wildPrimes := WildlyRamifiedPrimesForEbp(ebp);
+            localReport := CleanLocalLiftabilityReport(ebp);
+
+            Append(~rawCandidates, <j, bval, wildPrimes, localReport>);
+
+        end if;
+
+    end for;
+
+    /*
+        Candidate pairs are exactly the pairs above b_M that survived
+        checked local tests.
+    */
+
+    candidates := [];
+
+    for x in rawCandidates do
+
+        j := x[1];
+        bval := x[2];
+        wildPrimes := x[3];
+        localReport := x[4];
+
+        cand := rec< CandidateFormat |
+            pair_index           := j,
+            b_value              := bval,
+            wild_primes          := wildPrimes,
+            checked_local_report := localReport
+        >;
+
+        Append(~candidates, cand);
+
+    end for;
+
+    result := rec< GroupResultFormat |
+        degree           := degree,
+        transitive_index := transitive_index,
+        group_order      := #G,
+        minimal_index    := a,
+        number_of_Smin   := #Smin,
+        Smin_generates_G := sminGenerates,
+        number_of_pairs  := #T,
+        b_M              := bM,
+        b_T              := bT,
+        BW_lower         := BWlower,
+        BW_local_upper   := BWupperLocal,
+        candidates       := candidates
+    >;
+
+    return result;
+
+end function;
+
+
+/*****************************************************************************************
+    Print one result.
+*****************************************************************************************/
+
+PrintGroupResultSafe := procedure(R)
+
+    print "============================================================";
+    print "Degree =", R`degree, "TransitiveGroup index =", R`transitive_index;
+    print "Order =", R`group_order;
+
+    print "Minimal discriminant index a(G) =", R`minimal_index;
+    print "#Smin =", R`number_of_Smin;
+    print "Does Smin generate G? =", R`Smin_generates_G;
+
+    print "#(pi,phi) pairs =", R`number_of_pairs;
+
+    print "b_M =", R`b_M;
+    print "b_T =", R`b_T;
+
+    print "General expected range: b_M <= b_W <= b_T";
+    print "So here:", R`b_M, "<= b_W <=", R`b_T;
+
+    print "Conservative/local range for b_W:";
+    print R`BW_lower, "<= b_W <=", R`BW_local_upper;
+
+    if #R`candidates eq 0 then
+        print "Candidate pairs above conservative lower bound: none";
+    else
+        print "Candidate pairs above conservative lower bound:";
+        for c in R`candidates do
+            print "  pair index =", c`pair_index;
+            print "  b(pi,phi) =", c`b_value;
+            print "  wildly ramified primes =", c`wild_primes;
+            print "  checked local report =", c`checked_local_report;
+            print "  ----------------------------------------------------------";
+        end for;
+    end if;
+
+end procedure;
+
+
+/*****************************************************************************************
+    Run all transitive groups up to degree maxdeg.
+*****************************************************************************************/
+
+RunTransitiveGroupsUpToDegreeSafe := function(maxdeg)
+
+    allResults := [];
+
+    for n := 2 to maxdeg do
+
+        N := NumberOfTransitiveGroups(n);
+
+        print "############################################################";
+        print "Starting degree", n, "with", N, "transitive groups";
+        print "############################################################";
+
+        for i := 1 to N do
+
+            G := TransitiveGroup(n, i);
+
+            print "Now analyzing degree", n, "group", i, "of", N, "order", #G;
+
+            try
+                R := AnalyzeOneGroupDiscriminantSafe(G, n, i);
+                Append(~allResults, R);
+                PrintGroupResultSafe(R);
+            catch e
+                print "ERROR for degree", n, "group", i;
+                print e`Object;
+            end try;
+
+        end for;
+
+    end for;
+
+    return allResults;
+
+end function;
+
+
+/*****************************************************************************************
+    Test commands.
+*****************************************************************************************/
+
+/*
+
+// Test 1: C3 wr C2 in natural degree 6.
+
+G := WreathProduct(CyclicGroup(3), CyclicGroup(2));
+R := AnalyzeOneGroupDiscriminantSafe(G, 6, 0);
+PrintGroupResultSafe(R);
+
+
+// Test 2: C3 wr C4 in natural degree 12.
+
+G := WreathProduct(CyclicGroup(3), CyclicGroup(4));
+R := AnalyzeOneGroupDiscriminantSafe(G, 12, 0);
+PrintGroupResultSafe(R);
+
+
+// Test 3: all transitive groups up to degree 10.
+
+Results := RunTransitiveGroupsUpToDegreeSafe(7);
+
+*/
+
+/********************************************************************
+  Convert Boolean to Magma-readable string.
+********************************************************************/
+
+BoolString := function(b)
+    if b then
+        return "true";
+    else
+        return "false";
+    end if;
+end function;
+
+
+/********************************************************************
+  Convert integer sequence to Magma-readable string.
+********************************************************************/
+
+IntegerSeqString := function(S)
+
+    str := "[";
+
+    for i := 1 to #S do
+        str cat:= Sprint(S[i]);
+
+        if i lt #S then
+            str cat:= ", ";
+        end if;
+    end for;
+
+    str cat:= "]";
+
+    return str;
+
+end function;
+
+
+/********************************************************************
+  Convert clean local report to string.
+
+  Example:
+      [ <"p", 3, "liftable">, <"real", 0, "not liftable"> ]
+********************************************************************/
+
+CleanReportString := function(R)
+
+    str := "[";
+
+    for i := 1 to #R do
+        t := R[i];
+
+        str cat:= "<\"" cat t[1] cat "\", ";
+        str cat:= Sprint(t[2]) cat ", ";
+        str cat:= "\"" cat t[3] cat "\">";
+
+        if i lt #R then
+            str cat:= ", ";
+        end if;
+    end for;
+
+    str cat:= "]";
+
+    return str;
+
+end function;
+
+
+/********************************************************************
+  Write one candidate record in Magma-readable syntax.
+********************************************************************/
+
+WriteCandidateRecord := procedure(F, c)
+
+    fprintf F, "rec< CandidateFormat | ";
+    fprintf F, "pair_index := %o, ", c`pair_index;
+    fprintf F, "b_value := %o, ", c`b_value;
+    fprintf F, "wild_primes := %o, ", IntegerSeqString(c`wild_primes);
+    fprintf F, "checked_local_report := %o", CleanReportString(c`checked_local_report);
+    fprintf F, " >";
+
+end procedure;
+
+
+/********************************************************************
+  Write one group result record in Magma-readable syntax.
+********************************************************************/
+
+WriteGroupResultRecord := procedure(F, R)
+
+    fprintf F, "rec< GroupResultFormat | ";
+
+    fprintf F, "degree := %o, ", R`degree;
+    fprintf F, "transitive_index := %o, ", R`transitive_index;
+    fprintf F, "group_order := %o, ", R`group_order;
+    fprintf F, "minimal_index := %o, ", R`minimal_index;
+    fprintf F, "number_of_Smin := %o, ", R`number_of_Smin;
+    fprintf F, "Smin_generates_G := %o, ", BoolString(R`Smin_generates_G);
+    fprintf F, "number_of_pairs := %o, ", R`number_of_pairs;
+    fprintf F, "b_M := %o, ", R`b_M;
+    fprintf F, "b_T := %o, ", R`b_T;
+    fprintf F, "BW_lower := %o, ", R`BW_lower;
+    fprintf F, "BW_local_upper := %o, ", R`BW_local_upper;
+
+    fprintf F, "candidates := [";
+
+    for i := 1 to #R`candidates do
+        WriteCandidateRecord(F, R`candidates[i]);
+
+        if i lt #R`candidates then
+            fprintf F, ", ";
+        end if;
+    end for;
+
+    fprintf F, "]";
+
+    fprintf F, " >";
+
+end procedure;
+
+
+/********************************************************************
+  Quiet runner with selective terminal display.
+
+  It saves all results to a Magma-readable file.
+
+  Terminal output:
+      - always prints "Running nTi"
+      - only displays the group result if b_M != b_T
+********************************************************************/
+
+RunTransitiveGroupsUpToDegreeSaveMagma := function(maxdeg, output_file)
+
+    F := Open(output_file, "w");
+
+    fprintf F, "/* Automatically generated results file. */\n\n";
+
+    fprintf F, "CandidateFormat := recformat<\n";
+    fprintf F, "    pair_index,\n";
+    fprintf F, "    b_value,\n";
+    fprintf F, "    wild_primes,\n";
+    fprintf F, "    checked_local_report\n";
+    fprintf F, ">;\n\n";
+
+    fprintf F, "GroupResultFormat := recformat<\n";
+    fprintf F, "    degree,\n";
+    fprintf F, "    transitive_index,\n";
+    fprintf F, "    group_order,\n";
+    fprintf F, "    minimal_index,\n";
+    fprintf F, "    number_of_Smin,\n";
+    fprintf F, "    Smin_generates_G,\n";
+    fprintf F, "    number_of_pairs,\n";
+    fprintf F, "    b_M,\n";
+    fprintf F, "    b_T,\n";
+    fprintf F, "    BW_lower,\n";
+    fprintf F, "    BW_local_upper,\n";
+    fprintf F, "    candidates\n";
+    fprintf F, ">;\n\n";
+
+    fprintf F, "SavedResults := [\n";
+
+    firstResult := true;
+    totalDone := 0;
+    totalInteresting := 0;
+
+    for n := 2 to maxdeg do
+
+        N := NumberOfTransitiveGroups(n);
+
+        for i := 1 to N do
+
+            print "Running", Sprint(n) cat "T" cat Sprint(i);
+
+            G := TransitiveGroup(n, i);
+
+            try
+                R := AnalyzeOneGroupDiscriminantSafe(G, n, i);
+
+                /*
+                    Save every successful result.
+                */
+
+                if not firstResult then
+                    fprintf F, ",\n";
+                end if;
+
+                WriteGroupResultRecord(F, R);
+
+                firstResult := false;
+                totalDone +:= 1;
+
+                /*
+                    Only display detailed result when b_M and b_T differ.
+                */
+
+                if R`b_M ne R`b_T then
+
+                    totalInteresting +:= 1;
+
+                    print "Interesting group found:", Sprint(n) cat "T" cat Sprint(i);
+                    PrintGroupResultSafe(R);
+
+                end if;
+
+                Flush(F);
+
+            catch e
+                print "ERROR at", Sprint(n) cat "T" cat Sprint(i), "order", #G;
+                print e`Object;
+            end try;
+
+        end for;
+
+    end for;
+
+    fprintf F, "\n];\n\n";
+    fprintf F, "/* Number of successfully computed groups: %o */\n", totalDone;
+    fprintf F, "/* Number of groups with b_M != b_T: %o */\n", totalInteresting;
+
+    Flush(F);
+
+    print "Finished.";
+    print "Successfully computed groups:", totalDone;
+    print "Groups with b_M != b_T:", totalInteresting;
+    print "Saved results to:", output_file;
+
+    return totalDone;
+
+end function;
