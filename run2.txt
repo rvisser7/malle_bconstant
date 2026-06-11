@@ -1,0 +1,459 @@
+/********************************************************************
+    FullCheck(G)
+
+    Input:
+        G = finite permutation group
+
+    Output:
+        R = record containing
+
+            b_M
+            b_T
+            BW_lower_split
+            BW_upper_local
+
+    Meaning:
+        b_M:
+            b(pi,phi) for the trivial quotient B = 1.
+
+        b_T:
+            maximum b(pi,phi) among all relevant ebp.
+
+        BW_lower_split:
+            maximum b(pi,phi) among ebp passing split checking.
+
+            Here "passing split checking" means:
+                SplitReduction(ebp) returns autoSolved = true.
+
+        BW_upper_local:
+            maximum b(pi,phi) among ebp passing tame finite + real
+            local checking.
+
+    Thus the output range is
+
+        BW_lower_split <= b_W <= BW_upper_local.
+********************************************************************/
+
+
+/********************************************************************
+    Discriminant index.
+********************************************************************/
+
+DiscIndex := function(g)
+
+    C := CycleStructure(g);
+
+    k := 0;
+    n := 0;
+
+    for i := 1 to #C do
+        k +:= C[i][2];
+        n +:= C[i][1]*C[i][2];
+    end for;
+
+    return n - k;
+
+end function;
+
+
+/********************************************************************
+    Minimal discriminant-index elements.
+********************************************************************/
+
+DiscriminantSmin := function(G)
+
+    a := #G;
+    Smin := [];
+
+    for g in G do
+        if g ne Id(G) then
+
+            ig := DiscIndex(g);
+
+            if ig lt a then
+                a := ig;
+                Smin := [g];
+            elif ig eq a then
+                Append(~Smin, g);
+            end if;
+
+        end if;
+    end for;
+
+    return a, Smin;
+
+end function;
+
+
+/********************************************************************
+    Smin ∩ Ker(pi).
+********************************************************************/
+
+SminIntersectionKerPi := function(ebp, Smin)
+
+    pi := ebp`pi;
+    N  := Kernel(pi);
+
+    Sminpi := [];
+
+    for s in Smin do
+        if s in N then
+            Append(~Sminpi, s);
+        end if;
+    end for;
+
+    return Sminpi;
+
+end function;
+
+
+/********************************************************************
+    Trivial quotient test.
+********************************************************************/
+
+IsTrivialQuotientEbp := function(ebp)
+
+    return #ebp`B eq 1;
+
+end function;
+
+
+/********************************************************************
+    Local checking wrapper.
+
+    This assumes TameLocalLiftability.m is loaded.
+********************************************************************/
+
+PassesCheckedLocalTests := function(ebp)
+
+    ok, finiteReports, realReport := IsLocallyLiftableTameAndReal(ebp);
+
+    return ok;
+
+end function;
+
+
+/********************************************************************
+    Record formats for full check.
+********************************************************************/
+
+FullCheckCandidateFormat := recformat<
+    pair_index,
+    b_value,
+    B_order,
+    Ker_order,
+    passes_split,
+    passes_local,
+    reduced_G_order,
+    reduced_Ker_order
+>;
+
+FullCheckResultFormat := recformat<
+    group_order,
+    minimal_index,
+    number_of_Smin,
+    number_of_pairs,
+    b_M,
+    b_T,
+    BW_lower_split,
+    BW_upper_local,
+    split_candidates,
+    local_candidates
+>;
+
+
+/********************************************************************
+    FullCheck(G)
+********************************************************************/
+
+FullCheck := function(G)
+
+    a, Smin := DiscriminantSmin(G);
+
+    T := Gpiphi(G);
+
+    bM := 0;
+    bT := 0;
+
+    BWlowerSplit := 0;
+    BWupperLocal := 0;
+
+    splitCandidates := [];
+    localCandidates := [];
+
+    for j := 1 to #T do
+
+        ebp := T[j];
+
+        /*
+            Only consider ebp relevant to the leading exponent:
+                Smin ∩ Ker(pi) nonempty.
+        */
+
+        Sminpi := SminIntersectionKerPi(ebp, Smin);
+
+        if #Sminpi eq 0 then
+            continue;
+        end if;
+
+        numberSminInKer, bval := bpiphi(ebp, Smin);
+
+        /*
+            b_T: maximum over all relevant ebp.
+        */
+
+        if bval gt bT then
+            bT := bval;
+        end if;
+
+        /*
+            b_M: trivial quotient contribution.
+        */
+
+        if IsTrivialQuotientEbp(ebp) then
+            if bval gt bM then
+                bM := bval;
+            end if;
+        end if;
+
+        /*
+            Split checking lower bound.
+
+            SplitReduction should return:
+                autoSolved, ebp1, N1, q1, H1, H2
+
+            autoSolved = true means the two-step split condition succeeds.
+        */
+
+        autoSolved, ebp1, N1, q1, H1, H2 := SplitReduction(ebp);
+
+        if autoSolved then
+
+            if bval gt BWlowerSplit then
+                BWlowerSplit := bval;
+            end if;
+
+            cand := rec< FullCheckCandidateFormat |
+                pair_index        := j,
+                b_value           := bval,
+                B_order           := #ebp`B,
+                Ker_order         := #Kernel(ebp`pi),
+                passes_split      := true,
+                passes_local      := false,
+                reduced_G_order   := #ebp1`G,
+                reduced_Ker_order := #Kernel(ebp1`pi)
+            >;
+
+            Append(~splitCandidates, cand);
+
+        end if;
+
+        /*
+            Local tame + real checking upper bound.
+        */
+
+        okLocal := PassesCheckedLocalTests(ebp);
+
+        if okLocal then
+
+            if bval gt BWupperLocal then
+                BWupperLocal := bval;
+            end if;
+
+            cand := rec< FullCheckCandidateFormat |
+                pair_index        := j,
+                b_value           := bval,
+                B_order           := #ebp`B,
+                Ker_order         := #Kernel(ebp`pi),
+                passes_split      := autoSolved,
+                passes_local      := true,
+                reduced_G_order   := #ebp1`G,
+                reduced_Ker_order := #Kernel(ebp1`pi)
+            >;
+
+            Append(~localCandidates, cand);
+
+        end if;
+
+    end for;
+
+    /*
+        At least b_M should always be a lower bound and local upper bound.
+        This protects against no candidate being found due to filtering.
+    */
+
+    if bM gt BWlowerSplit then
+        BWlowerSplit := bM;
+    end if;
+
+    if bM gt BWupperLocal then
+        BWupperLocal := bM;
+    end if;
+
+    R := rec< FullCheckResultFormat |
+        group_order      := #G,
+        minimal_index    := a,
+        number_of_Smin   := #Smin,
+        number_of_pairs  := #T,
+        b_M              := bM,
+        b_T              := bT,
+        BW_lower_split   := BWlowerSplit,
+        BW_upper_local   := BWupperLocal,
+        split_candidates := splitCandidates,
+        local_candidates := localCandidates
+    >;
+
+    return R;
+
+end function;
+
+
+/********************************************************************
+    Pretty printer.
+********************************************************************/
+
+PrintFullCheckResult := procedure(R)
+
+    print "============================================================";
+    print "Full check result";
+    print "============================================================";
+
+    print "Order(G) =", R`group_order;
+    print "a(G) =", R`minimal_index;
+    print "#Smin =", R`number_of_Smin;
+    print "#(pi,phi) pairs =", R`number_of_pairs;
+
+    print "------------------------------------------------------------";
+    print "b_M =", R`b_M;
+    print "b_T =", R`b_T;
+
+    print "------------------------------------------------------------";
+    print "Range for b_W from checks:";
+    print R`BW_lower_split, "<= b_W <=", R`BW_upper_local;
+
+    print "------------------------------------------------------------";
+    print "Split-passing candidates giving lower bound:";
+    if #R`split_candidates eq 0 then
+        print "none";
+    else
+        for c in R`split_candidates do
+            print "  pair index =", c`pair_index,
+                  "b =", c`b_value,
+                  "|B| =", c`B_order,
+                  "|Ker(pi)| =", c`Ker_order,
+                  "|Gred| =", c`reduced_G_order,
+                  "|Ker(pi_red)| =", c`reduced_Ker_order;
+        end for;
+    end if;
+
+    print "------------------------------------------------------------";
+    print "Local-passing candidates giving upper bound:";
+    if #R`local_candidates eq 0 then
+        print "none";
+    else
+        for c in R`local_candidates do
+            print "  pair index =", c`pair_index,
+                  "b =", c`b_value,
+                  "|B| =", c`B_order,
+                  "|Ker(pi)| =", c`Ker_order,
+                  "split-pass =", c`passes_split;
+        end for;
+    end if;
+
+    print "============================================================";
+
+end procedure;
+
+
+/********************************************************************
+    RunWindowOnlyOnGroupLabels(GroupLabels)
+
+    Input:
+        GroupLabels = [ <n1,d1>, <n2,d2>, ... ]
+
+    For each G = TransitiveGroup(n,d), run FullCheck(G).
+
+    Terminal output:
+        Only display groups where b_W is still a genuine window:
+
+            BW_lower_split < BW_upper_local.
+
+    Output:
+        WindowResults = [ <n,d,R>, ... ]
+
+    Assumes already loaded:
+        GeneratePiPhiList.m
+        ComputeOrbit.m
+        TameLocalLiftability.m
+        SplitReduction code
+        FullCheck code
+********************************************************************/
+
+RunWindowOnlyOnGroupLabels := function(GroupLabels)
+
+    WindowResults := [];
+
+    total := #GroupLabels;
+    done := 0;
+    windowCount := 0;
+    errorCount := 0;
+
+    for lab in GroupLabels do
+
+        n := lab[1];
+        d := lab[2];
+
+        done +:= 1;
+
+        try
+            G := TransitiveGroup(n, d);
+
+            R := FullCheck(G);
+
+            if R`BW_lower_split lt R`BW_upper_local then
+
+                windowCount +:= 1;
+                Append(~WindowResults, <n, d, R>);
+
+                print "============================================================";
+                printf "%oT%o still has a window\n", n, d;
+                print "------------------------------------------------------------";
+                printf "Order(G) = %o\n", #G;
+                printf "b_M = %o\n", R`b_M;
+                printf "b_T = %o\n", R`b_T;
+                printf "b_W range: %o <= b_W <= %o\n",
+                    R`BW_lower_split, R`BW_upper_local;
+                printf "#split candidates = %o\n", #R`split_candidates;
+                printf "#local candidates = %o\n", #R`local_candidates;
+                print "============================================================";
+
+            end if;
+
+        catch e
+
+            errorCount +:= 1;
+
+            /*
+                Since you asked to only display windows in terminal,
+                we do not print errors by default.
+                If you want error messages, uncomment below.
+
+            print "ERROR at", Sprint(n) cat "T" cat Sprint(d);
+            print e`Object;
+            */
+
+        end try;
+
+    end for;
+
+    print "============================================================";
+    print "Finished window-only run";
+    printf "Input groups checked: %o\n", total;
+    printf "Window groups found: %o\n", windowCount;
+    printf "Errors suppressed: %o\n", errorCount;
+    print "============================================================";
+
+    return WindowResults;
+
+end function;
+
