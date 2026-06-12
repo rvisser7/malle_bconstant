@@ -1,4 +1,5 @@
 import glob
+import os
 
 def get_sort_key(group_label):
     # Splits "30T132" into (30, 132) to ensure 6T1 comes before 30T1
@@ -7,7 +8,8 @@ def get_sort_key(group_label):
 
 def generate_lmfdb_files(input_pattern="BW_Bounds_Degree_*.txt", 
                          lmfdb_file="lmfdb_malle_b.txt", 
-                         unknown_file="unknown_wang_b.txt"):
+                         unknown_file="unknown_wang_b.txt",
+                         all_labels_file="gg_lmfdb_labels.txt"):
                          
     file_list = glob.glob(input_pattern)
     
@@ -27,8 +29,6 @@ def generate_lmfdb_files(input_pattern="BW_Bounds_Degree_*.txt",
                 line = line.strip()
                 
                 if line.startswith("Group "):
-                    # Example line: 
-                    # "Group 30T132: b_M = 1, b_T = 1, BW_lower_split = 1, BW_upper_local = 1"
                     try:
                         label_part, vars_part = line.split(":")
                         label = label_part.replace("Group ", "").strip()
@@ -50,12 +50,12 @@ def generate_lmfdb_files(input_pattern="BW_Bounds_Degree_*.txt",
     # Sort mathematically by degree, then by T-number
     parsed_data.sort(key=lambda x: get_sort_key(x[0]))
     
+    # Create a fast-lookup set of all processed labels
+    processed_labels_set = {row[0] for row in parsed_data}
+    
     # ---------------------------------------------------------
     # 2. Database format setup
     # ---------------------------------------------------------
-    # NOTE: LMFDB uses PostgreSQL. If you are doing a raw bulk import (.txt copy),
-    # Postgres usually requires "\N" to represent a NULL smallint. 
-    # I have set this to "None" as requested, but you can change it here if the DB rejects it!
     NULL_STRING = "None" 
     
     with open(lmfdb_file, 'w') as f_lmfdb, open(unknown_file, 'w') as f_unk:
@@ -74,7 +74,6 @@ def generate_lmfdb_files(input_pattern="BW_Bounds_Degree_*.txt",
                 unknown_labels.append(label)
                 
             # --- Determine the status (0, 1, 2, or 3) ---
-            # We check all mathematically possible values for b_W in the range [bw_l, bw_u]
             possible_statuses = set()
             for x in range(bw_l, bw_u + 1):
                 if b_M == x and x == b_T:
@@ -86,22 +85,34 @@ def generate_lmfdb_files(input_pattern="BW_Bounds_Degree_*.txt",
                 elif b_M < x and x < b_T:
                     possible_statuses.add(3)    # b_M < b_W < b_T
                     
-            # If all possible values of b_W yield the exact same relational status, we deduced it!
             if len(possible_statuses) == 1:
                 status_str = str(possible_statuses.pop())
             else:
-                # The bounds are too wide; we cannot definitively deduce the status
                 status_str = NULL_STRING
                 
             # Write formatted row to the LMFDB file
             f_lmfdb.write(f"{label}|{b_T}|{b_W_str}|{status_str}\n")
             
-        # Write the list of unknowns to the secondary file
+        # Write the list of unknowns
         for label in unknown_labels:
             f_unk.write(f"{label}\n")
 
     # ---------------------------------------------------------
-    # 3. Print Summary
+    # 3. Check against full LMFDB master list
+    # ---------------------------------------------------------
+    missing_labels = []
+    if os.path.exists(all_labels_file):
+        with open(all_labels_file, 'r') as f_master:
+            all_lmfdb_labels = [line.strip() for line in f_master if line.strip()]
+            
+        # Find which master labels are missing from our processed data
+        missing_labels = [lbl for lbl in all_lmfdb_labels if lbl not in processed_labels_set]
+        missing_labels.sort(key=get_sort_key)
+    else:
+        print(f"\nWarning: '{all_labels_file}' not found. Skipping missing labels check.")
+
+    # ---------------------------------------------------------
+    # 4. Print Summary
     # ---------------------------------------------------------
     print("==========================================================")
     print(f"Processed {len(parsed_data)} group outputs.")
@@ -109,8 +120,18 @@ def generate_lmfdb_files(input_pattern="BW_Bounds_Degree_*.txt",
     print("----------------------------------------------------------")
     print(f"LMFDB formatted data saved to: '{lmfdb_file}'")
     print(f"Unknown labels saved to:       '{unknown_file}'")
+    
+    if missing_labels is not None and os.path.exists(all_labels_file):
+        print("----------------------------------------------------------")
+        print(f"Total groups missing/unprocessed: {len(missing_labels)}")
+        if missing_labels:
+            print("First 10 missing groups to process:")
+            for ml in missing_labels[:10]:
+                print(f"  -> {ml}")
     print("==========================================================")
 
 if __name__ == "__main__":
-    # Ensure this pattern matches the Magma output files in your directory!
-    generate_lmfdb_files(input_pattern="BW_Bounds_Degree_*.txt")
+    generate_lmfdb_files(
+        input_pattern="BW_Bounds_Degree_*.txt",
+        all_labels_file="gg_lmfdb_labels.txt"
+    )
