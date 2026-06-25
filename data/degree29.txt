@@ -1,0 +1,11 @@
+label|malle_b|malle_turkelli_b|malle_wang_b|malle_b_status|malle_b_prp|malle_turkelli_b_prp|malle_wang_b_prp|malle_b_status_prp
+text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
+
+29T1|\N|\N|\N|\N|\N|\N|\N|\N
+29T2|\N|\N|\N|\N|\N|\N|\N|\N
+29T3|\N|\N|\N|\N|\N|\N|\N|\N
+29T4|\N|\N|\N|\N|\N|\N|\N|\N
+29T5|\N|\N|\N|\N|\N|\N|\N|\N
+29T6|\N|\N|\N|\N|\N|\N|\N|\N
+29T7|\N|\N|\N|\N|\N|\N|\N|\N
+29T8|\N|\N|\N|\N|\N|\N|\N|\N
