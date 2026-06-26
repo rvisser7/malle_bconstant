@@ -1,14 +1,14 @@
 label|malle_b|malle_turkelli_b|malle_wang_b|malle_b_status|malle_b_prp|malle_turkelli_b_prp|malle_wang_b_prp|malle_b_status_prp
 text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 
-37T1|\N|\N|\N|\N|\N|\N|\N|\N
-37T2|\N|\N|\N|\N|\N|\N|\N|\N
-37T3|\N|\N|\N|\N|\N|\N|\N|\N
-37T4|\N|\N|\N|\N|\N|\N|\N|\N
-37T5|\N|\N|\N|\N|\N|\N|\N|\N
-37T6|\N|\N|\N|\N|\N|\N|\N|\N
-37T7|\N|\N|\N|\N|\N|\N|\N|\N
-37T8|\N|\N|\N|\N|\N|\N|\N|\N
-37T9|\N|\N|\N|\N|\N|\N|\N|\N
-37T10|\N|\N|\N|\N|\N|\N|\N|\N
-37T11|\N|\N|\N|\N|\N|\N|\N|\N
+37T1|1|1|1|0|\N|\N|\N|\N
+37T2|1|1|1|0|\N|\N|\N|\N
+37T3|1|1|1|0|\N|\N|\N|\N
+37T4|1|1|1|0|\N|\N|\N|\N
+37T5|1|1|1|0|\N|\N|\N|\N
+37T6|1|1|1|0|\N|\N|\N|\N
+37T7|1|1|1|0|\N|\N|\N|\N
+37T8|1|1|1|0|\N|\N|\N|\N
+37T9|1|1|1|0|\N|\N|\N|\N
+37T10|2|2|2|0|\N|\N|\N|\N
+37T11|1|1|1|0|\N|\N|\N|\N
