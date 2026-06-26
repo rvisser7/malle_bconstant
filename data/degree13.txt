@@ -1,12 +1,12 @@
 label|malle_b|malle_turkelli_b|malle_wang_b|malle_b_status|malle_b_prp|malle_turkelli_b_prp|malle_wang_b_prp|malle_b_status_prp
 text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 
-13T1|\N|\N|\N|\N|\N|\N|\N|\N
-13T2|\N|\N|\N|\N|\N|\N|\N|\N
-13T3|\N|\N|\N|\N|\N|\N|\N|\N
-13T4|\N|\N|\N|\N|\N|\N|\N|\N
-13T5|\N|\N|\N|\N|\N|\N|\N|\N
-13T6|\N|\N|\N|\N|\N|\N|\N|\N
-13T7|\N|\N|\N|\N|\N|\N|\N|\N
-13T8|\N|\N|\N|\N|\N|\N|\N|\N
-13T9|\N|\N|\N|\N|\N|\N|\N|\N
+13T1|\N|\N|\N|\N|1|1|1|0
+13T2|\N|\N|\N|\N|2|2|2|0
+13T3|\N|\N|\N|\N|2|3|3|1
+13T4|\N|\N|\N|\N|3|4|4|1
+13T5|\N|\N|\N|\N|4|4|4|0
+13T6|\N|\N|\N|\N|6|12|12|1
+13T7|\N|\N|\N|\N|7|7|7|0
+13T8|\N|\N|\N|\N|51|51|51|0
+13T9|\N|\N|\N|\N|100|100|100|0
