@@ -1,11 +1,11 @@
 label|malle_b|malle_turkelli_b|malle_wang_b|malle_b_status|malle_b_prp|malle_turkelli_b_prp|malle_wang_b_prp|malle_b_status_prp
 text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 
-19T1|\N|\N|\N|\N|1|1|1|0
-19T2|\N|\N|\N|\N|2|2|2|0
-19T3|\N|\N|\N|\N|2|2|2|0
-19T4|\N|\N|\N|\N|4|4|4|0
-19T5|\N|\N|\N|\N|3|9|9|1
-19T6|\N|\N|\N|\N|6|18|18|1
-19T7|\N|\N|\N|\N|247|247|247|0
-19T8|\N|\N|\N|\N|489|489|489|0
+19T1|1|1|1|0|1|1|1|0
+19T2|1|1|1|0|2|2|2|0
+19T3|1|1|1|0|2|2|2|0
+19T4|1|1|1|0|4|4|4|0
+19T5|1|1|1|0|3|9|9|1
+19T6|1|1|1|0|6|18|18|1
+19T7|2|2|2|0|247|247|247|0
+19T8|1|1|1|0|489|489|489|0
