@@ -301,9 +301,9 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 39T298|\N|\N|\N|\N|\N|\N|\N|\N
 39T299|\N|\N|\N|\N|\N|\N|\N|\N
 39T300|\N|\N|\N|\N|\N|\N|\N|\N
-39T301|\N|\N|\N|\N|\N|\N|\N|\N
-39T302|\N|\N|\N|\N|\N|\N|\N|\N
-39T303|\N|\N|\N|\N|\N|\N|\N|\N
-39T304|\N|\N|\N|\N|\N|\N|\N|\N
-39T305|\N|\N|\N|\N|\N|\N|\N|\N
-39T306|\N|\N|\N|\N|\N|\N|\N|\N
+39T301|1|1|1|0|\N|\N|\N|\N
+39T302|3|3|3|0|\N|\N|\N|\N
+39T303|3|3|3|0|\N|\N|\N|\N
+39T304|1|1|1|0|\N|\N|\N|\N
+39T305|2|2|2|0|\N|\N|\N|\N
+39T306|1|1|1|0|\N|\N|\N|\N
