@@ -1,13 +1,13 @@
 label|malle_b|malle_turkelli_b|malle_wang_b|malle_b_status|malle_b_prp|malle_turkelli_b_prp|malle_wang_b_prp|malle_b_status_prp
 text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 
-17T1|\N|\N|\N|\N|1|1|1|0
-17T2|\N|\N|\N|\N|2|2|2|0
-17T3|\N|\N|\N|\N|3|3|3|0
-17T4|\N|\N|\N|\N|4|4|4|0
-17T5|\N|\N|\N|\N|5|16|16|1
-17T6|\N|\N|\N|\N|5|5|5|0
-17T7|\N|\N|\N|\N|9|9|9|0
-17T8|\N|\N|\N|\N|12|12|12|0
-17T9|\N|\N|\N|\N|150|150|150|0
-17T10|\N|\N|\N|\N|296|296|296|0
+17T1|1|1|1|0|1|1|1|0
+17T2|1|1|1|0|2|2|2|0
+17T3|1|1|1|0|3|3|3|0
+17T4|1|1|1|0|4|4|4|0
+17T5|1|1|1|0|5|16|16|1
+17T6|1|1|1|0|5|5|5|0
+17T7|1|1|1|0|9|9|9|0
+17T8|1|1|1|0|12|12|12|0
+17T9|2|2|2|0|150|150|150|0
+17T10|1|1|1|0|296|296|296|0
