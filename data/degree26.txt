@@ -93,7 +93,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 26T90|1|1|1|0|\N|\N|\N|\N
 26T91|2|2|2|0|\N|\N|\N|\N
 26T92|3|3|3|0|\N|\N|\N|\N
-26T93|\N|\N|\N|\N|\N|\N|\N|\N
+26T93|3|3|3|0|\N|\N|\N|\N
 26T94|1|1|1|0|\N|\N|\N|\N
 26T95|2|2|2|0|\N|\N|\N|\N
 26T96|1|1|1|0|\N|\N|\N|\N
