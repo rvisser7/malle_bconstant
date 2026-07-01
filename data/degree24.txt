@@ -15982,9 +15982,9 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 24T15979|5|5|5|0|\N|\N|\N|\N
 24T15980|1|1|1|0|\N|\N|\N|\N
 24T15981|1|1|1|0|\N|\N|\N|\N
-24T15982|\N|\N|\N|\N|\N|\N|\N|\N
-24T15983|\N|\N|\N|\N|\N|\N|\N|\N
-24T15984|\N|\N|\N|\N|\N|\N|\N|\N
+24T15982|1|2|1|2|\N|\N|\N|\N
+24T15983|1|2|2|1|\N|\N|\N|\N
+24T15984|1|2|2|1|\N|\N|\N|\N
 24T15985|\N|\N|\N|\N|\N|\N|\N|\N
 24T15986|\N|\N|\N|\N|\N|\N|\N|\N
 24T15987|2|2|2|0|\N|\N|\N|\N
