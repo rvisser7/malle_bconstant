@@ -45,7 +45,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 38T42|1|2|2|1|\N|\N|\N|\N
 38T43|1|1|1|0|\N|\N|\N|\N
 38T44|1|1|1|0|\N|\N|\N|\N
-38T45|\N|\N|\N|\N|\N|\N|\N|\N
+38T45|1|2|1|2|\N|\N|\N|\N
 38T46|1|2|2|1|\N|\N|\N|\N
 38T47|1|1|1|0|\N|\N|\N|\N
 38T48|9|9|9|0|\N|\N|\N|\N
@@ -65,14 +65,14 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 38T62|1|1|1|0|\N|\N|\N|\N
 38T63|2|2|2|0|\N|\N|\N|\N
 38T64|2|2|2|0|\N|\N|\N|\N
-38T65|\N|\N|\N|\N|\N|\N|\N|\N
+38T65|1|1|1|0|\N|\N|\N|\N
 38T66|1|1|1|0|\N|\N|\N|\N
 38T67|1|1|1|0|\N|\N|\N|\N
 38T68|1|1|1|0|\N|\N|\N|\N
 38T69|2|2|2|0|\N|\N|\N|\N
-38T70|\N|\N|\N|\N|\N|\N|\N|\N
-38T71|\N|\N|\N|\N|\N|\N|\N|\N
-38T72|\N|\N|\N|\N|\N|\N|\N|\N
+38T70|1|1|1|0|\N|\N|\N|\N
+38T71|2|2|2|0|\N|\N|\N|\N
+38T72|3|3|3|0|\N|\N|\N|\N
 38T73|\N|\N|\N|\N|\N|\N|\N|\N
 38T74|\N|\N|\N|\N|\N|\N|\N|\N
 38T75|2|2|2|0|\N|\N|\N|\N
