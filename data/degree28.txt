@@ -940,9 +940,9 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 28T937|4|6|6|1|\N|\N|\N|\N
 28T938|1|1|1|0|\N|\N|\N|\N
 28T939|1|1|1|0|\N|\N|\N|\N
-28T940|\N|\N|\N|\N|\N|\N|\N|\N
+28T940|1|2|1|2|\N|\N|\N|\N
 28T941|1|2|2|1|\N|\N|\N|\N
-28T942|\N|\N|\N|\N|\N|\N|\N|\N
+28T942|1|2|1|2|\N|\N|\N|\N
 28T943|1|2|2|1|\N|\N|\N|\N
 28T944|1|1|1|0|\N|\N|\N|\N
 28T945|1|1|1|0|\N|\N|\N|\N
