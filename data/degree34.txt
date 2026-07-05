@@ -111,8 +111,8 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 34T108|1|1|1|0|\N|\N|\N|\N
 34T109|1|1|1|0|\N|\N|\N|\N
 34T110|2|2|2|0|\N|\N|\N|\N
-34T111|\N|\N|\N|\N|\N|\N|\N|\N
-34T112|\N|\N|\N|\N|\N|\N|\N|\N
+34T111|3|3|3|0|\N|\N|\N|\N
+34T112|3|3|3|0|\N|\N|\N|\N
 34T113|1|1|1|0|\N|\N|\N|\N
 34T114|2|2|2|0|\N|\N|\N|\N
 34T115|1|1|1|0|\N|\N|\N|\N
