@@ -11,12 +11,15 @@ UnitInteger := function(c, f)
     return IntegerRing()!f(c);
 end function;
 
+// OPTIMISED: was a linear scan over every element of G. `@@` asks Magma for a
+// preimage directly, and `b in Image(pi)` decides existence without enumerating.
+// Which preimage comes back does not matter: every caller then ranges over the
+// whole coset X0*N, which is the full preimage of b either way.
 HasPreimage := function(pi, b)
-    G := Domain(pi);
-    for g in G do
-        if pi(g) eq b then return true, g; end if;
-    end for;
-    return false, Id(G);
+    if b in Image(pi) then
+        return true, b @@ pi;
+    end if;
+    return false, Id(Domain(pi));
 end function;
 
 IsLocalLiftableTameByBImages := function(ebp, p, bX, bY)
@@ -28,12 +31,20 @@ IsLocalLiftableTameByBImages := function(ebp, p, bX, bY)
     okY, Y0 := HasPreimage(pi, bY);
     if not okY then return false, "No lift of inertia image", <Id(G), Id(G)>; end if;
 
-    for nX in N do
-        X := X0*nX;
-        for nY in N do
-            Y := Y0*nY;
-            if X*Y*X^(-1) eq Y^p then
-                return true, "Liftable", <X,Y>;
+    // OPTIMISED: same iteration order and same first match as before, but the
+    // Y coset and its p-th powers are built once instead of once per nX, and
+    // X^(-1) once per outer step instead of once per pair.  That takes the
+    // inner loop from (1 mult + 1 power + 1 inverse + 2 mult) down to 2 mults.
+    Nseq := [ n : n in N ];
+    Ys   := [ Y0*n : n in Nseq ];
+    Yps  := [ Y^p : Y in Ys ];
+
+    for nX in Nseq do
+        X  := X0*nX;
+        Xi := X^(-1);
+        for k := 1 to #Ys do
+            if X*Ys[k]*Xi eq Yps[k] then
+                return true, "Liftable", <X, Ys[k]>;
             end if;
         end for;
     end for;
@@ -176,8 +187,18 @@ IsRealLocallyLiftable := function(ebp)
     if not found then return true, "No -1 element found", Id(G); end if;
     b := phi(cminus);
 
-    for g in G do
-        if pi(g) eq b and g^2 eq Id(G) then
+    // OPTIMISED: { g : pi(g) eq b } is exactly the coset g0*Kernel(pi), so scan
+    // that instead of all of G.  Same set of candidates, |N| of them instead of
+    // |G|.  (A different witness element may be returned; no caller uses it --
+    // PassesCheckedLocalTests keeps only the boolean.)
+    if not (b in Image(pi)) then
+        return false, "Real place not liftable", Id(G);
+    end if;
+    g0 := b @@ pi;
+    N  := Kernel(pi);
+    for n in N do
+        g := g0*n;
+        if g^2 eq Id(G) then
             return true, "Real place liftable", g;
         end if;
     end for;
