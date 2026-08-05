@@ -11,6 +11,11 @@ Pipeline, per degree n:
 Re-running is safe and resumable: only \\N rows are ever recomputed, so an
 interrupted run just picks up where it left off.
 
+With --verify it instead recomputes rows that are ALREADY filled in, as if the
+data files were empty, and reports every cell where the fresh value disagrees
+with what is on disk. Nothing is written in this mode. Use --verify-sample to
+spot-check a random subset rather than all 512,614 rows.
+
 All of the mathematics lives in magma/ -- see magma/README.md. This script
 knows only two things about it: how to invoke an entry point, and how to turn
 (b_M, b_T, BW_lower, BW_upper) into four column values.
@@ -20,6 +25,7 @@ import os
 import sys
 import argparse
 import subprocess
+import random
 import tempfile
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -176,6 +182,28 @@ def needs_compute(row, sentinel_off):
     return row[sentinel_off] == NULL
 
 
+def compare_row(label, old, new, colnames):
+    """Compare four stored strings against four freshly computed ones.
+
+    Returns (verdict, detail) where verdict is one of:
+      "match"    -- every cell agrees
+      "new"      -- every stored cell was \\N, so there was nothing to check
+      "mismatch" -- at least one stored non-null cell disagrees
+
+    A stored \\N against a computed value is NOT a mismatch: it just means that
+    cell had never been computed. A stored value against a computed \\N IS a
+    mismatch -- we used to be able to determine it and now cannot.
+    """
+    if all(o == NULL for o in old):
+        return "new", ""
+    bad = [(c, o, n) for c, o, n in zip(colnames, old, new)
+           if o != NULL and o != n]
+    if not bad:
+        return "match", ""
+    detail = "; ".join(f"{c}: file={o} computed={n}" for c, o, n in bad)
+    return "mismatch", f"{label}  {detail}"
+
+
 # --------------------------------------------------------------------------
 #  Worker: one Magma invocation over a chunk of indices for a single degree
 # --------------------------------------------------------------------------
@@ -238,7 +266,24 @@ def main():
                     help="scratch dir for idx/out files (default: a temp dir)")
     ap.add_argument("--dry-run", action="store_true",
                     help="just report what's missing; don't call Magma")
+
+    grp = ap.add_argument_group("verification")
+    grp.add_argument("--verify", action="store_true",
+                     help="recompute rows that are ALREADY filled in, as if the "
+                          "data files were empty, and report disagreements. "
+                          "Writes nothing; exits 1 if any mismatch is found.")
+    grp.add_argument("--verify-sample", type=int, default=None, metavar="K",
+                     help="with --verify, check a random sample of K groups per "
+                          "degree instead of all of them")
+    grp.add_argument("--seed", type=int, default=0,
+                     help="random seed for --verify-sample (default 0, so the "
+                          "same sample is reproducible)")
+    grp.add_argument("--mismatch-log", default="bconstant_mismatches.log",
+                     help="where to write mismatches found by --verify")
     args = ap.parse_args()
+
+    if args.verify_sample is not None and not args.verify:
+        ap.error("--verify-sample only makes sense with --verify")
 
     cfg = ORDERINGS[args.ordering]
     target_offsets = [COLUMNS.index(c) for c in cfg["cols"]]
@@ -267,20 +312,36 @@ def main():
             continue
         header, types, rows = read_data(path)
         idx_to_row = {label_index(r[0]): r for r in rows}
-        missing = sorted(label_index(r[0]) for r in rows
-                         if needs_compute(r, sentinel_off))
         state[n] = dict(path=path, header=header, types=types,
                         rows=rows, idx_to_row=idx_to_row)
-        if not missing:
-            print(f"[skip] degree {n}: complete ({len(rows)} groups)")
-            continue
-        print(f"[plan] degree {n}: {len(missing)}/{len(rows)} groups to compute")
-        for c in chunked(missing, args.chunk_size):
+
+        if args.verify:
+            # Ignore the sentinel entirely: recompute as if nothing were filled
+            # in. Rows that really are all \N still get computed; they simply
+            # report as "new" rather than as agreeing or disagreeing.
+            targets = sorted(idx_to_row)
+            if args.verify_sample is not None and args.verify_sample < len(targets):
+                targets = sorted(random.Random(args.seed + n)
+                                 .sample(targets, args.verify_sample))
+                print(f"[plan] degree {n}: verifying a sample of "
+                      f"{len(targets)}/{len(rows)} groups")
+            else:
+                print(f"[plan] degree {n}: verifying all {len(targets)} groups")
+        else:
+            targets = sorted(label_index(r[0]) for r in rows
+                             if needs_compute(r, sentinel_off))
+            if not targets:
+                print(f"[skip] degree {n}: complete ({len(rows)} groups)")
+                continue
+            print(f"[plan] degree {n}: {len(targets)}/{len(rows)} groups to compute")
+
+        for c in chunked(targets, args.chunk_size):
             tasks.append((n, c))
 
     if args.dry_run:
         total = sum(len(c) for _, c in tasks)
-        print(f"\n[dry-run] {len(tasks)} chunks, {total} groups would be computed.")
+        verb = "verified" if args.verify else "computed"
+        print(f"\n[dry-run] {len(tasks)} chunks, {total} groups would be {verb}.")
         return
 
     if not tasks:
@@ -288,11 +349,14 @@ def main():
         return
 
     # --- Run in parallel; merge + flush as chunks finish --------------------
+    mode = "VERIFY (nothing will be written)" if args.verify else "fill"
     print(f"\nLaunching {len(tasks)} chunks on {args.workers} workers "
-          f"(scratch: {workdir})\n" + "=" * 60)
+          f"[{mode}]\n(scratch: {workdir})\n" + "=" * 60)
     payloads = [(n, c, workdir, args.magma, entry, args.magma_dir)
                 for (n, c) in tasks]
     done_chunks = defaultdict(int)
+    tally = defaultdict(int)      # verify mode: match / new / mismatch counts
+    mismatches = []               # verify mode: human-readable lines
     expected = defaultdict(int)
     for n, _ in tasks:
         expected[n] += 1
@@ -312,14 +376,41 @@ def main():
             for i, (bM, bT, lo, up) in results.items():
                 vals = b_values(bM, bT, lo, up)
                 row = st["idx_to_row"][i]
-                for off, v in zip(target_offsets, vals):
-                    row[off] = v
+
+                if args.verify:
+                    old = [row[off] for off in target_offsets]
+                    verdict, detail = compare_row(row[0], old, vals, cfg["cols"])
+                    tally[verdict] += 1
+                    if verdict == "mismatch":
+                        mismatches.append(detail)
+                        print(f"[MISMATCH] {detail}")
+                else:
+                    for off, v in zip(target_offsets, vals):
+                        row[off] = v
 
             done_chunks[n] += 1
-            if done_chunks[n] % args.flush_every == 0 or done_chunks[n] == expected[n]:
-                write_data(st["path"], st["header"], st["types"], st["rows"])
+            if not args.verify:
+                if (done_chunks[n] % args.flush_every == 0
+                        or done_chunks[n] == expected[n]):
+                    write_data(st["path"], st["header"], st["types"], st["rows"])
             print(f"[ok  ] degree {n}: chunk {chunk[0]}..{chunk[-1]} "
                   f"({done_chunks[n]}/{expected[n]} chunks)")
+
+    if args.verify:
+        print("=" * 60)
+        print(f"Verified {sum(tally.values())} groups in the {args.ordering} "
+              f"ordering:")
+        print(f"  agree with the data files : {tally['match']}")
+        print(f"  not previously computed   : {tally['new']}")
+        print(f"  DISAGREE                  : {tally['mismatch']}")
+        if mismatches:
+            with open(args.mismatch_log, "w", encoding="utf-8") as f:
+                f.write(f"# {args.ordering} ordering, {len(mismatches)} mismatches\n")
+                f.write("\n".join(mismatches) + "\n")
+            print(f"\nMismatches written to {args.mismatch_log}")
+            sys.exit(1)
+        print("\nNo disagreements. Nothing was written.")
+        return
 
     # Final safety flush
     for n, st in state.items():
