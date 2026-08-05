@@ -7,12 +7,16 @@
 //
 // Requires (load first): records.m
 
+// OPTIMISED: was computing the ENTIRE subgroup lattice of G and then throwing
+// away everything of the wrong order.  OrderEqual pushes that filter into
+// Magma's search.  Testing one representative per conjugacy class is still
+// sound because K is normal in every call site (N1 and Nbar are both normal),
+// so #(H^g meet K) = #(H meet K).
 IsSplitKernel := function(G, K)
     targetOrder := #G div #K;
-    SG := Subgroups(G);
+    SG := Subgroups(G : OrderEqual := targetOrder);
     for R in SG do
         H := R`subgroup;
-        if #H ne targetOrder then continue; end if;
         if #(H meet K) ne 1 then continue; end if;
         return true, H;
     end for;
