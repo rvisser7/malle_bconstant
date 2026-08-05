@@ -208,7 +208,7 @@ def compare_row(label, old, new, colnames):
 #  Worker: one Magma invocation over a chunk of indices for a single degree
 # --------------------------------------------------------------------------
 def run_chunk(args):
-    n, indices, workdir, magma, entry, magma_dir = args
+    n, indices, workdir, magma, entry, magma_dir, timeout = args
     tag = f"{n}_{indices[0]}_{indices[-1]}"
     idxfile = os.path.join(workdir, f"idx_{tag}.txt")
     outfile = os.path.join(workdir, f"out_{tag}.txt")
@@ -219,8 +219,39 @@ def run_chunk(args):
     # resolve.  idxfile/outfile are absolute, so they are unaffected.
     cmd = [magma, "-b", f"n:={n}",
            f"idxfile:={idxfile}", f"outfile:={outfile}", entry]
-    subprocess.run(cmd, cwd=magma_dir, stdout=subprocess.DEVNULL,
-                   stderr=subprocess.STDOUT, check=True)
+    proc = subprocess.run(cmd, cwd=magma_dir, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, text=True,
+                          timeout=timeout)
+
+    # Magma exits 0 even when a script raises, so a nonzero code is not the
+    # only failure mode -- a missing output file is the real signal.  Either
+    # way, surface what Magma actually said instead of swallowing it.
+    if proc.returncode != 0 or not os.path.exists(outfile):
+        why = (f"exit code {proc.returncode}" if proc.returncode != 0
+               else "produced no output file")
+        out = (proc.stdout or "").strip()
+        tail = "\n".join(out.splitlines()[-15:]) if out else "(no output)"
+
+        # A specific failure worth naming: if the entry point's `assigned
+        # outfile` test does not see the command-line variable, Magma silently
+        # falls back to its default filename in the cwd and computes every
+        # group of the degree rather than our chunk.  Everything looks healthy
+        # in Magma's own output; only the missing file gives it away.
+        hint = ""
+        stray = os.path.join(magma_dir, f"bconst_results_{n}.txt")
+        if os.path.exists(stray):
+            hint = (f"\n    NOTE: {stray} exists. Magma ignored outfile:= and "
+                    f"wrote its\n          default filename instead, which "
+                    f"means the `assigned` tests in\n          the entry point "
+                    f"are not seeing the command-line variables.\n"
+                    f"          The CLI block must be at TOP LEVEL, not inside "
+                    f"a procedure.")
+
+        raise RuntimeError(
+            f"Magma {why}.\n"
+            f"    command: {' '.join(cmd)}\n"
+            f"    cwd:     {magma_dir}\n"
+            f"    --- last lines of Magma output ---\n{tail}{hint}")
 
     results = {}
     with open(outfile) as f:
@@ -256,6 +287,9 @@ def main():
                          "(discriminant ordering, first four columns) or 'prp' "
                          "(product of ramified primes, last four). Default: disc")
     ap.add_argument("--magma", default="magma")
+    ap.add_argument("--timeout", type=float, default=None, metavar="SEC",
+                    help="kill a Magma chunk after this many seconds; the rows "
+                         "stay \\N and are retried next run (default: no limit)")
     ap.add_argument("--magma-dir", default=MAGMA_DIR,
                     help="directory containing the Magma entry points and lib/ "
                          "(default: <repo>/magma)")
@@ -352,9 +386,10 @@ def main():
     mode = "VERIFY (nothing will be written)" if args.verify else "fill"
     print(f"\nLaunching {len(tasks)} chunks on {args.workers} workers "
           f"[{mode}]\n(scratch: {workdir})\n" + "=" * 60)
-    payloads = [(n, c, workdir, args.magma, entry, args.magma_dir)
+    payloads = [(n, c, workdir, args.magma, entry, args.magma_dir, args.timeout)
                 for (n, c) in tasks]
     done_chunks = defaultdict(int)
+    n_failed = [0]                # so the first failure can be shown in full
     tally = defaultdict(int)      # verify mode: match / new / mismatch counts
     mismatches = []               # verify mode: human-readable lines
     expected = defaultdict(int)
@@ -368,8 +403,15 @@ def main():
             try:
                 _, results = fut.result()
             except Exception as e:
-                print(f"[ERR ] degree {n} chunk {chunk[0]}..{chunk[-1]}: {e} "
-                      f"(left as \\N, will retry on next run)")
+                n_failed[0] += 1
+                if n_failed[0] == 1:
+                    print("\n" + "!" * 60)
+                    print(f"FIRST FAILURE -- degree {n} chunk "
+                          f"{chunk[0]}..{chunk[-1]}:\n{e}")
+                    print("!" * 60 + "\n")
+                else:
+                    print(f"[ERR ] degree {n} chunk {chunk[0]}..{chunk[-1]}: "
+                          f"{type(e).__name__} (left as \\N, will retry)")
                 continue
 
             st = state[n]
@@ -409,6 +451,13 @@ def main():
                 f.write("\n".join(mismatches) + "\n")
             print(f"\nMismatches written to {args.mismatch_log}")
             sys.exit(1)
+        if n_failed[0]:
+            # Chunks that never ran are not evidence of agreement.  Without
+            # this, a run where Magma failed on everything would report a
+            # clean bill of health.
+            print(f"\nINCOMPLETE: {n_failed[0]} of {len(tasks)} chunks failed, "
+                  f"so those groups were never checked.")
+            sys.exit(2)
         print("\nNo disagreements. Nothing was written.")
         return
 
