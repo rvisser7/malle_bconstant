@@ -1,11 +1,13 @@
 // =====================================================================
-// Enumeration of embedding problems: Gpiphi
+// Embedding problems: Gpiphi, IsTrivialQuotientEbp
 // =====================================================================
 //
-// Extracted verbatim from compute_all_fast.m. The code below is unchanged
-// byte-for-byte, so the split cannot alter any computed value.
+// Verbatim from the discriminant-ordering source; unchanged byte-for-byte.
 //
 // Requires (load first): records.m
+//
+// Both functions are identical in the disc and prp sources, so they live
+// here rather than in either ordering subfolder.
 
 Gpiphi := function(G)
     d := Exponent(G);
@@ -33,4 +35,8 @@ Gpiphi := function(G)
         end for;
     end for;
     return Pair;
+end function;
+
+IsTrivialQuotientEbp := function(ebp)
+    return #ebp`B eq 1;
 end function;
