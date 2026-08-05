@@ -29,4 +29,5 @@ For a fixed ordering write $b_M$, $b_W$, $b_T$ for Malle's, Wang's, and Türkell
 | `1` | $b_M < b_W = b_T$ |
 | `2` | $b_M = b_W < b_T$ |
 | `3` | $b_M < b_W < b_T$ |
+| `4` | $b_M < b_T$ and $b_W$ unknown |
 | `\N` | the relationship could not be determined |
