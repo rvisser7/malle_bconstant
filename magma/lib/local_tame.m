@@ -22,6 +22,15 @@ HasPreimage := function(pi, b)
     return false, Id(Domain(pi));
 end function;
 
+// How large Kernel(pi) has to get before the conjugacy machinery below is
+// worth its overhead.  Both branches decide exactly the same predicate, so
+// this only trades one cost model for another.
+//
+// TO TEST THE FAST BRANCH: set this to 0, which forces every call down it,
+// and run run_parallel.py --verify.  Left at 64, a verify pass over the small
+// degrees may never execute it at all.
+TameLiftDirectLimit := 64;
+
 IsLocalLiftableTameByBImages := function(ebp, p, bX, bY)
     G  := ebp`G; pi := ebp`pi; N  := Kernel(pi);
 
@@ -31,23 +40,77 @@ IsLocalLiftableTameByBImages := function(ebp, p, bX, bY)
     okY, Y0 := HasPreimage(pi, bY);
     if not okY then return false, "No lift of inertia image", <Id(G), Id(G)>; end if;
 
-    // OPTIMISED: same iteration order and same first match as before, but the
-    // Y coset and its p-th powers are built once instead of once per nX, and
-    // X^(-1) once per outer step instead of once per pair.  That takes the
-    // inner loop from (1 mult + 1 power + 1 inverse + 2 mult) down to 2 mults.
+    // We need X in X0*N and Y in Y0*N with X*Y*X^-1 = Y^p.
     Nseq := [ n : n in N ];
     Ys   := [ Y0*n : n in Nseq ];
     Yps  := [ Y^p : Y in Ys ];
 
-    for nX in Nseq do
-        X  := X0*nX;
-        Xi := X^(-1);
-        for k := 1 to #Ys do
-            if X*Ys[k]*Xi eq Yps[k] then
-                return true, "Liftable", <X, Ys[k]>;
+    // ---- small kernels: the direct search, unchanged -------------------
+    if #Nseq le TameLiftDirectLimit then
+        for nX in Nseq do
+            X  := X0*nX;
+            Xi := X^(-1);
+            for k := 1 to #Ys do
+                if X*Ys[k]*Xi eq Yps[k] then
+                    return true, "Liftable", <X, Ys[k]>;
+                end if;
+            end for;
+        end for;
+        return false, "No pair of lifts satisfies tame relation", <Id(G), Id(G)>;
+    end if;
+
+    // ---- large kernels: |N| coset tests instead of |N|^2 pairs ---------
+    //
+    // Fix Y.  The set S = { g in G : g*Y*g^-1 = Y^p } is empty when Y^p is not
+    // conjugate to Y, and is otherwise the coset w*C_G(Y) for any single w with
+    // w*Y*w^-1 = Y^p:
+    //
+    //     g*Y*g^-1 = w*Y*w^-1  <=>  (w^-1*g) centralises Y  <=>  g in w*C_G(Y).
+    //
+    // So "does some X in X0*N work for this Y?" becomes "does w*C_G(Y) meet
+    // X0*N?", and since N is normal in G the product N*C_G(Y) is a subgroup:
+    //
+    //     (w*C) meet (X0*N) non-empty
+    //       <=> exists c in C, n in N with w*c = X0*n
+    //       <=> exists c in C with X0^-1*w*c in N
+    //       <=> X0^-1*w in N*C^-1 = N*C = <N, C>.
+    //
+    // One membership test per Y, in place of a scan over all of X0*N.
+    X0i   := X0^(-1);
+    Ngens := Generators(N);
+
+    for k := 1 to #Ys do
+        Y := Ys[k];
+
+        // Magma's IsConjugate returns t with Y^t = t^-1*Y*t, so invert it to
+        // get the left-conjugation convention used above.
+        okc, t := IsConjugate(G, Y, Yps[k]);
+        if not okc then continue; end if;
+        w := t^(-1);
+
+        CY := Centraliser(G, Y);
+        NC := sub< G | Ngens join Generators(CY) >;
+
+        if not (X0i*w in NC) then continue; end if;
+
+        // A solution exists.  Recover an explicit X in (X0*N) meet (w*C_G(Y)):
+        // one pass over N, and only on the branch that already succeeded, so it
+        // does not affect the asymptotics.
+        wi := w^(-1);
+        for n in Nseq do
+            X := X0*n;
+            if wi*X in CY then
+                return true, "Liftable", <X, Y>;
             end if;
         end for;
+
+        // Unreachable: the membership test above proves the intersection is
+        // non-empty, so the loop must have found X.  Fail loudly rather than
+        // silently reporting "not liftable" if that reasoning is ever wrong.
+        error "IsLocalLiftableTameByBImages: coset intersection was certified " *
+              "non-empty but no witness was found -- this is a bug";
     end for;
+
     return false, "No pair of lifts satisfies tame relation", <Id(G), Id(G)>;
 end function;
 
