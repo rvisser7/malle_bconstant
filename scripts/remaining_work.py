@@ -16,6 +16,10 @@ therefore the malle_b (resp. malle_b_prp) column.
 import os
 import argparse
 
+# scripts/ lives one level below the repo root; the data files are in data/.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(REPO_ROOT, "data")
+
 COLUMNS = ["label", "malle_b", "malle_turkelli_b", "malle_wang_b", "malle_b_status",
            "malle_b_prp", "malle_turkelli_b_prp", "malle_wang_b_prp",
            "malle_b_status_prp"]
@@ -51,7 +55,9 @@ def count_file(path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--data-dir", default=".")
+    ap.add_argument("--data-dir", default=DATA_DIR,
+                    help="folder holding the degree<n>.txt files "
+                         "(default: the repo's data/ folder)")
     ap.add_argument("--name", default="degree{n}.txt",
                     help="data filename pattern, must contain {n} "
                          "(default: degree{n}.txt)")
@@ -72,7 +78,8 @@ def main():
 
     # Header: two rows, grouping disc vs prp.
     print(f"Remaining \\N entries per b-constant column "
-          f"(file pattern: {args.name})\n")
+          f"(file pattern: {args.name})")
+    print(f"Data folder: {os.path.abspath(args.data_dir)}\n")
     grp = (f"{'':>6}{'':>9} | {'discriminant order':^{3*w}} | "
            f"{'prod. ramified primes':^{3*w}}")
     print(grp)
