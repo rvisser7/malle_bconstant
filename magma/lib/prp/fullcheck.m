@@ -14,7 +14,8 @@
 //                        embedding_problems.m, prp/orbits.m
 
 FullCheck := function(G)
-    T := Gpiphi(G);
+    d := Exponent(G);
+    T := Gpiphi(G, d);
 
     bM := 0; 
     bT := 0;
@@ -59,8 +60,16 @@ FullCheck := function(G)
             ebp1_generated := false;
 
             if bval_int gt BWlowerSplit then
-                autoSolved, ebp1, N1, q1, H1, H2 := SplitReduction(ebp);
+                ebp1, allAbelian := MaximalSplitReduction(ebp);
                 ebp1_generated := true;
+
+                if not allAbelian then
+                    autoSolved := false;
+                elif #Kernel(ebp1`pi) eq 1 then
+                    autoSolved := true;
+                else
+                    autoSolved := CertifyResidualQ8(ebp1, d);
+                end if;
                 
                 if autoSolved then
                     BWlowerSplit := bval_int;
@@ -86,7 +95,7 @@ FullCheck := function(G)
                     BWupperLocal := bval_int;
 
                     if not ebp1_generated then
-                        _, ebp1, _, _, _, _ := SplitReduction(ebp);
+                        ebp1 := MaximalSplitReduction(ebp);
                     end if;
 
                     cand := rec< FullCheckCandidateFormat |
@@ -110,6 +119,7 @@ FullCheck := function(G)
         end for;
     end if;
 
+    assert BWlowerSplit le BWupperLocal;
     R := rec< FullCheckResultFormat |
         group_order      := #G, minimal_index    := a,
         number_of_Smin   := num_Smin, number_of_pairs  := #T,
