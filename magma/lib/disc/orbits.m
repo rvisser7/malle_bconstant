@@ -68,7 +68,7 @@ bpiphi := function(ebp, Smin)
             idx +:= 1;
             for pair in action_pairs do
                 x := pair[1]; a_val := pair[2];
-                next_s := x * (curr^a_val) * x^(-1);
+                next_s := x^(-1) * (curr^a_val) * x;
                 if not (next_s in visited) then
                     Include(~visited, next_s);
                     Append(~queue, next_s);
