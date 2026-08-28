@@ -170,12 +170,8 @@ end function;
 // Top-level: does this pair certify a PROPER solution?
 // ---------------------------------------------------------------------
 CertifyAdmissible := function(ebp, d)
-    ebp1, allAbelian, _ := MaximalSplitReduction(ebp);
-    if not allAbelian then
-        // the climb back up the tower is not justified; stay silent
-        return false, "non-abelian summand split off";
-    end if;
-    if #Kernel(ebp1`pi) eq 1 then
+    ebp1, fullySplit := MaximalSplitReduction(ebp);
+    if fullySplit then
         return true, "fully split";
     end if;
     return CertifyResidualQ8(ebp1, d);
