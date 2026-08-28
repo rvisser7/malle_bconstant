@@ -50,12 +50,10 @@ FullCheck := function(G)
             ebp1_generated := false;
 
             if bval_int gt BWlowerSplit then
-                ebp1, allAbelian := MaximalSplitReduction(ebp);
+                ebp1, fullySplit := MaximalSplitReduction(ebp);
                 ebp1_generated := true;
 
-                if not allAbelian then
-                    autoSolved := false;
-                elif #Kernel(ebp1`pi) eq 1 then
+                if fullySplit then
                     autoSolved := true;
                 else
                     autoSolved := CertifyResidualQ8(ebp1, d);
