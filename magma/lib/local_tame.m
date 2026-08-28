@@ -170,7 +170,7 @@ end function;
 
 InertiaImageInBAtPrime := function(ebp, p)
     G := ebp`G; C := ebp`C; f := ebp`f; phi := ebp`phi; B := ebp`B;
-    d := Exponent(G);
+    d := ebp`d;
     I := CyclotomicInertiaAtPrime(C, f, d, p);
     imgs := [ phi(t) : t in Generators(I) ];
     if #imgs eq 0 then return sub< B | Id(B) >; end if;
@@ -194,7 +194,7 @@ IsTamelyRamifiedInBAtPrime := function(ebp, p)
 end function;
 
 TamelyRamifiedPrimesForEbp := function(ebp)
-    G := ebp`G; d := Exponent(G);
+    G := ebp`G; d := ebp`d;
     primes := [];
     for q in Factorization(d) do
         p := q[1];
@@ -205,7 +205,7 @@ end function;
 
 IsCyclotomicTameLocallyLiftableAtPrime := function(ebp, p)
     G := ebp`G; C := ebp`C; f := ebp`f; phi := ebp`phi; B := ebp`B;
-    d := Exponent(G);
+    d := ebp`d;
     xC := CyclotomicFrobeniusAtPrime(C, f, d, p);
     bX := phi(xC);
     Htame := TameInertiaImageInBAtPrime(ebp, p);
@@ -237,7 +237,7 @@ end function;
 
 IsRealLocallyLiftable := function(ebp)
     G := ebp`G; C := ebp`C; f := ebp`f; phi := ebp`phi; pi := ebp`pi;
-    d := Exponent(G);
+    d := ebp`d;
     found := false; cminus := Id(C);
 
     for c in C do
