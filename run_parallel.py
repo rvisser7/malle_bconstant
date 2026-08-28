@@ -220,8 +220,8 @@ def run_chunk(args):
     cmd = [magma, "-b", f"n:={n}",
            f"idxfile:={idxfile}", f"outfile:={outfile}", entry]
     proc = subprocess.run(cmd, cwd=magma_dir, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, text=True,
-                          timeout=timeout)
+                          stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                          text=True, timeout=timeout)
 
     # Magma exits 0 even when a script raises, so a nonzero code is not the
     # only failure mode -- a missing output file is the real signal.  Either
