@@ -9,8 +9,7 @@
 // Both functions are identical in the disc and prp sources, so they live
 // here rather than in either ordering subfolder.
 
-Gpiphi := function(G)
-    d := Exponent(G);
+Gpiphi := function(G, d)
     C, f := MultiplicativeGroup(Integers(d));
     AbG, f_AbG := AbelianQuotient(G);
     AbC, f_AbC := AbelianQuotient(C); 
