@@ -7,7 +7,7 @@
 //
 // Requires (load first): nothing
 
-EmbeddingProb := recformat
+EmbeddingProb := recformat<
     B, G, C, f, pi, phi, d
 >;
 
