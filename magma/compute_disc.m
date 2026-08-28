@@ -17,6 +17,8 @@
 
 load "lib/records.m";
 load "lib/splitting.m";
+load "lib/split_tower.m";
+load "lib/q8_certificate.m";
 load "lib/local_tame.m";
 load "lib/embedding_problems.m";
 load "lib/disc/orbits.m";        // <-- ordering-dependent
