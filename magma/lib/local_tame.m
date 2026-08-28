@@ -275,6 +275,7 @@ IsLocallyLiftableTameAndReal := function(ebp)
 end function;
 
 PassesCheckedLocalTests := function(ebp)
+    assert Modulus(Codomain(ebp`f)) eq ebp`d;
     ok, finiteReports, realReport := IsLocallyLiftableTameAndReal(ebp);
     return ok;
 end function;
