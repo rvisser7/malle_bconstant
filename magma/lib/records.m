@@ -7,8 +7,8 @@
 //
 // Requires (load first): nothing
 
-EmbeddingProb := recformat<
-    B, G, C, f, pi, phi
+EmbeddingProb := recformat
+    B, G, C, f, pi, phi, d
 >;
 
 FullCheckCandidateFormat := recformat<
