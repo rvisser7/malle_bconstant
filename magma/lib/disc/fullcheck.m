@@ -8,7 +8,8 @@
 
 FullCheck := function(G)
     a, Smin := MinIndex(G);
-    T := Gpiphi(G);
+    d := LCM([ Order(s) : s in Smin ]);
+    T := Gpiphi(G, d);
 
     bM := 0; 
     bT := 0;
