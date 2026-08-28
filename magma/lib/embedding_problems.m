@@ -27,7 +27,7 @@ Gpiphi := function(G, d)
             if IsSurjective(phi_map) then
                 phi := f_AbC * phi_map;
                 ebp := rec< EmbeddingProb |
-                    B := Q, G := G, C := C, f := f, pi := pi, phi := phi
+                    B := Q, G := G, C := C, f := f, pi := pi, phi := phi, d := d
                 >;
                 Append(~Pair, ebp);
             end if;
