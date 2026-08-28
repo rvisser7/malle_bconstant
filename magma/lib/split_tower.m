@@ -87,7 +87,7 @@ end function;
 MaximalSplitReduction := function(ebp)
     fullySplit, G1, pi1 := ReduceTower(ebp`G, ebp`pi, ebp`B, 16);
     ebp1 := rec< EmbeddingProb |
-        B := ebp`B, G := G1, C := ebp`C, f := ebp`f, pi := pi1, phi := ebp`phi
+        B := ebp`B, G := G1, C := ebp`C, f := ebp`f, pi := pi1, phi := ebp`phi, d := ebp`d
     >;
     return ebp1, fullySplit;
 end function;
