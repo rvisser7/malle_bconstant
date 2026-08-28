@@ -21,10 +21,10 @@
 // PROPERNESS.  s . psi is NOT surjective onto G (its image is the complement),
 // so this direction alone certifies solvable, not properly solvable, and
 // Conjecture 6 counts surjective liftings.  The repair is to climb back up
-// the tower: each step is a SPLIT embedding problem G_k -> G_{k+1}, and by
-// Ikeda's theorem a finite split embedding problem with ABELIAN kernel over a
-// Hilbertian field is properly solvable.  So every layer of the tower must
-// have abelian kernel.
+// the tower: each step is a SPLIT embedding problem G_k -> G_{k+1}, so it has
+// a solution, and by [NSW, (9.6.10)] an embedding problem over a global field
+// which has a solution and has finite NILPOTENT kernel can be solved properly.
+// So every layer of the tower must have nilpotent kernel.
 //
 // The abelian hypothesis cannot be dropped.  With B trivial, the split problem
 // 1 -> G -> G -> 1 -> 1 is properly solvable exactly when G is a Galois group
@@ -39,14 +39,14 @@
 // C_3^4 first, then C_2, reduces to the trivial kernel through abelian layers.
 // So: abelian candidates only, largest first, and backtrack.
 
-// Abelian normal M <= N, M != 1, admitting a complement in G, largest first.
-AbelianComplementedCandidates := function(G, N)
+// Nilpotent normal M <= N, M != 1, admitting a complement in G, largest first.
+NilpotentComplementedCandidates := function(G, N)
     cands := [];
     for R in NormalSubgroups(G) do
         M := R`subgroup;
         if #M eq 1 or #M eq #G then continue; end if;
         if not (M subset N) then continue; end if;
-        if not IsAbelian(M) then continue; end if;
+        if not IsNilpotent(M) then continue; end if;
         ok := IsSplitKernel(G, M);
         if ok then Append(~cands, M); end if;
     end for;
@@ -64,7 +64,7 @@ ReduceTower := function(G, pi, B, depth)
     if #N eq 1 then return true, G, pi; end if;
     if depth le 0 then return false, G, pi; end if;
 
-    cands := AbelianComplementedCandidates(G, N);
+    cands := NilpotentComplementedCandidates(G, N);
     if #cands eq 0 then return false, G, pi; end if;
 
     bestG := G; bestpi := pi; haveBest := false;
