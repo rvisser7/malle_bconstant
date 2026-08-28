@@ -16,6 +16,10 @@ data files were empty, and reports every cell where the fresh value disagrees
 with what is on disk. Nothing is written in this mode. Use --verify-sample to
 spot-check a random subset rather than all 512,614 rows.
 
+Mismatches are appended to --mismatch-log as they are found, not at the end of
+the run, so an interrupted verify pass still leaves a usable record. Pair that
+with --quiet to suppress the per-chunk progress chatter.
+
 All of the mathematics lives in magma/ -- see magma/README.md. This script
 knows only two things about it: how to invoke an entry point, and how to turn
 (b_M, b_T, BW_lower, BW_upper) into four column values.
@@ -24,6 +28,7 @@ knows only two things about it: how to invoke an entry point, and how to turn
 import os
 import sys
 import argparse
+import datetime
 import subprocess
 import random
 import tempfile
@@ -217,6 +222,11 @@ def run_chunk(args):
 
     # cwd = magma/ so that the `load "lib/..."` lines in the entry point
     # resolve.  idxfile/outfile are absolute, so they are unaffected.
+    #
+    # stdin=DEVNULL matters: if a `load` raises, Magma abandons the script and
+    # drops to its interactive prompt.  With an inherited terminal it would sit
+    # there forever printing ">"; with stdin closed it hits EOF and exits, so
+    # the error surfaces here instead of hanging the whole pool.
     cmd = [magma, "-b", f"n:={n}",
            f"idxfile:={idxfile}", f"outfile:={outfile}", entry]
     proc = subprocess.run(cmd, cwd=magma_dir, stdout=subprocess.PIPE,
@@ -300,6 +310,14 @@ def main():
                     help="scratch dir for idx/out files (default: a temp dir)")
     ap.add_argument("--dry-run", action="store_true",
                     help="just report what's missing; don't call Magma")
+    ap.add_argument("--quiet", action="store_true",
+                    help="suppress the per-chunk [ok  ] lines and the per-degree "
+                         "[plan]/[skip] lines; only mismatches, errors and the "
+                         "final summary are printed. A progress line is printed "
+                         "every --progress-every chunks instead.")
+    ap.add_argument("--progress-every", type=int, default=500, metavar="K",
+                    help="with --quiet, print a progress line every K completed "
+                         "chunks (0 to disable entirely; default 500)")
 
     grp = ap.add_argument_group("verification")
     grp.add_argument("--verify", action="store_true",
@@ -312,8 +330,10 @@ def main():
     grp.add_argument("--seed", type=int, default=0,
                      help="random seed for --verify-sample (default 0, so the "
                           "same sample is reproducible)")
-    grp.add_argument("--mismatch-log", default="bconstant_mismatches.log",
-                     help="where to write mismatches found by --verify")
+    grp.add_argument("--mismatch-log",
+                     default=os.path.join(REPO_ROOT, "bconstant_mismatches.log"),
+                     help="where to APPEND mismatches found by --verify, as they "
+                          "are found (default: <repo>/bconstant_mismatches.log)")
     args = ap.parse_args()
 
     if args.verify_sample is not None and not args.verify:
@@ -357,17 +377,22 @@ def main():
             if args.verify_sample is not None and args.verify_sample < len(targets):
                 targets = sorted(random.Random(args.seed + n)
                                  .sample(targets, args.verify_sample))
-                print(f"[plan] degree {n}: verifying a sample of "
-                      f"{len(targets)}/{len(rows)} groups")
+                if not args.quiet:
+                    print(f"[plan] degree {n}: verifying a sample of "
+                          f"{len(targets)}/{len(rows)} groups")
             else:
-                print(f"[plan] degree {n}: verifying all {len(targets)} groups")
+                if not args.quiet:
+                    print(f"[plan] degree {n}: verifying all {len(targets)} groups")
         else:
             targets = sorted(label_index(r[0]) for r in rows
                              if needs_compute(r, sentinel_off))
             if not targets:
-                print(f"[skip] degree {n}: complete ({len(rows)} groups)")
+                if not args.quiet:
+                    print(f"[skip] degree {n}: complete ({len(rows)} groups)")
                 continue
-            print(f"[plan] degree {n}: {len(targets)}/{len(rows)} groups to compute")
+            if not args.quiet:
+                print(f"[plan] degree {n}: {len(targets)}/{len(rows)} groups "
+                      f"to compute")
 
         for c in chunked(targets, args.chunk_size):
             tasks.append((n, c))
@@ -385,58 +410,92 @@ def main():
     # --- Run in parallel; merge + flush as chunks finish --------------------
     mode = "VERIFY (nothing will be written)" if args.verify else "fill"
     print(f"\nLaunching {len(tasks)} chunks on {args.workers} workers "
-          f"[{mode}]\n(scratch: {workdir})\n" + "=" * 60)
+          f"[{mode}]\n(scratch: {workdir})\n" + "=" * 60, flush=True)
     payloads = [(n, c, workdir, args.magma, entry, args.magma_dir, args.timeout)
                 for (n, c) in tasks]
     done_chunks = defaultdict(int)
     n_failed = [0]                # so the first failure can be shown in full
+    n_done = [0]                  # completed chunks, for the --quiet progress line
     tally = defaultdict(int)      # verify mode: match / new / mismatch counts
     mismatches = []               # verify mode: human-readable lines
+
+    # The log is opened lazily on the first mismatch and line-buffered, so that
+    # (a) a clean run leaves no stray file, and (b) an interrupted run still
+    # leaves every mismatch found so far on disk.  Appending rather than
+    # truncating means a later clean run cannot erase an earlier run's findings.
+    mlog = [None]
+
+    def log_mismatch(detail):
+        if mlog[0] is None:
+            mlog[0] = open(args.mismatch_log, "a", encoding="utf-8", buffering=1)
+            mlog[0].write(
+                f"# {args.ordering} ordering, run "
+                f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}\n")
+        mlog[0].write(detail + "\n")
+
     expected = defaultdict(int)
     for n, _ in tasks:
         expected[n] += 1
 
-    with ProcessPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(run_chunk, p): (p[0], p[1]) for p in payloads}
-        for fut in as_completed(futs):
-            n, chunk = futs[fut]
-            try:
-                _, results = fut.result()
-            except Exception as e:
-                n_failed[0] += 1
-                if n_failed[0] == 1:
-                    print("\n" + "!" * 60)
-                    print(f"FIRST FAILURE -- degree {n} chunk "
-                          f"{chunk[0]}..{chunk[-1]}:\n{e}")
-                    print("!" * 60 + "\n")
+    try:
+        with ProcessPoolExecutor(max_workers=args.workers) as ex:
+            futs = {ex.submit(run_chunk, p): (p[0], p[1]) for p in payloads}
+            for fut in as_completed(futs):
+                n, chunk = futs[fut]
+                try:
+                    _, results = fut.result()
+                except Exception as e:
+                    n_failed[0] += 1
+                    if n_failed[0] == 1:
+                        print("\n" + "!" * 60)
+                        print(f"FIRST FAILURE -- degree {n} chunk "
+                              f"{chunk[0]}..{chunk[-1]}:\n{e}")
+                        print("!" * 60 + "\n", flush=True)
+                    else:
+                        print(f"[ERR ] degree {n} chunk {chunk[0]}..{chunk[-1]}: "
+                              f"{type(e).__name__} (left as \\N, will retry)",
+                              flush=True)
+                    continue
+
+                st = state[n]
+                for i, (bM, bT, lo, up) in results.items():
+                    vals = b_values(bM, bT, lo, up)
+                    row = st["idx_to_row"][i]
+
+                    if args.verify:
+                        old = [row[off] for off in target_offsets]
+                        verdict, detail = compare_row(row[0], old, vals,
+                                                      cfg["cols"])
+                        tally[verdict] += 1
+                        if verdict == "mismatch":
+                            mismatches.append(detail)
+                            log_mismatch(detail)
+                            print(f"[MISMATCH] {detail}", flush=True)
+                    else:
+                        for off, v in zip(target_offsets, vals):
+                            row[off] = v
+
+                done_chunks[n] += 1
+                n_done[0] += 1
+                if not args.verify:
+                    if (done_chunks[n] % args.flush_every == 0
+                            or done_chunks[n] == expected[n]):
+                        write_data(st["path"], st["header"], st["types"],
+                                   st["rows"])
+
+                if args.quiet:
+                    if (args.progress_every
+                            and n_done[0] % args.progress_every == 0):
+                        note = (f", {tally['mismatch']} mismatches"
+                                if args.verify else "")
+                        print(f"[....] {n_done[0]}/{len(tasks)} chunks"
+                              f"{note}", flush=True)
                 else:
-                    print(f"[ERR ] degree {n} chunk {chunk[0]}..{chunk[-1]}: "
-                          f"{type(e).__name__} (left as \\N, will retry)")
-                continue
-
-            st = state[n]
-            for i, (bM, bT, lo, up) in results.items():
-                vals = b_values(bM, bT, lo, up)
-                row = st["idx_to_row"][i]
-
-                if args.verify:
-                    old = [row[off] for off in target_offsets]
-                    verdict, detail = compare_row(row[0], old, vals, cfg["cols"])
-                    tally[verdict] += 1
-                    if verdict == "mismatch":
-                        mismatches.append(detail)
-                        print(f"[MISMATCH] {detail}")
-                else:
-                    for off, v in zip(target_offsets, vals):
-                        row[off] = v
-
-            done_chunks[n] += 1
-            if not args.verify:
-                if (done_chunks[n] % args.flush_every == 0
-                        or done_chunks[n] == expected[n]):
-                    write_data(st["path"], st["header"], st["types"], st["rows"])
-            print(f"[ok  ] degree {n}: chunk {chunk[0]}..{chunk[-1]} "
-                  f"({done_chunks[n]}/{expected[n]} chunks)")
+                    print(f"[ok  ] degree {n}: chunk {chunk[0]}..{chunk[-1]} "
+                          f"({done_chunks[n]}/{expected[n]} chunks)")
+    finally:
+        if mlog[0] is not None:
+            mlog[0].close()
 
     if args.verify:
         print("=" * 60)
@@ -446,10 +505,7 @@ def main():
         print(f"  not previously computed   : {tally['new']}")
         print(f"  DISAGREE                  : {tally['mismatch']}")
         if mismatches:
-            with open(args.mismatch_log, "w", encoding="utf-8") as f:
-                f.write(f"# {args.ordering} ordering, {len(mismatches)} mismatches\n")
-                f.write("\n".join(mismatches) + "\n")
-            print(f"\nMismatches written to {args.mismatch_log}")
+            print(f"\nMismatches appended to {args.mismatch_log}")
             sys.exit(1)
         if n_failed[0]:
             # Chunks that never ran are not evidence of agreement.  Without
