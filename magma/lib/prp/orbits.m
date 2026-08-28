@@ -57,7 +57,7 @@ bpiphi := function(ebp)
                 x_c := pair[1]; 
                 a_val := pair[2];
                 
-                next_el := x_c * (rep^a_val) * x_c^(-1);
+                next_el := x_c^(-1) * (rep^a_val) * x_c;
                 next_idx := cm(next_el);
                 
                 if not (next_idx in visited) then
