@@ -21,56 +21,73 @@
 // PROPERNESS.  s . psi is NOT surjective onto G (its image is the complement),
 // so this direction alone certifies solvable, not properly solvable, and
 // Conjecture 6 counts surjective liftings.  The repair is to climb back up
-// the tower: each step is a SPLIT embedding problem G_k -> G_{k+1}, and a
-// finite split embedding problem with ABELIAN kernel over a Hilbertian field
-// is properly solvable.  So if every M split off is abelian, a proper
-// solution of the reduced problem lifts to a proper solution of the original.
-// That is what allAbelian tracks; do not use the certificate without it.
+// the tower: each step is a SPLIT embedding problem G_k -> G_{k+1}, and by
+// Ikeda's theorem a finite split embedding problem with ABELIAN kernel over a
+// Hilbertian field is properly solvable.  So every layer of the tower must
+// have abelian kernel.
+//
+// The abelian hypothesis cannot be dropped.  With B trivial, the split problem
+// 1 -> G -> G -> 1 -> 1 is properly solvable exactly when G is a Galois group
+// over Q, so an unrestricted "split => properly solvable" would be assuming
+// the inverse Galois problem.
+//
+// Nor may we simply take the LARGEST complemented M at each step: a bigger M
+// is worthless if it is non-abelian and a finer all-abelian tower exists.
+// 12T130 = C_3 wr C_2^2 is the example.  For N = C_3^4 : C_2 of index 2 in G,
+// N is itself complemented (by any involution of V outside N) but non-abelian,
+// so the greedy step ends the tower with a non-abelian layer; whereas
+// C_3^4 first, then C_2, reduces to the trivial kernel through abelian layers.
+// So: abelian candidates only, largest first, and backtrack.
 
-// Largest nontrivial M <= N, normal in G, with a complement in G.
-SplitOffOnce := function(G, N)
-    bestM  := sub< G | Id(G) >;
-    found  := false;
+// Abelian normal M <= N, M != 1, admitting a complement in G, largest first.
+AbelianComplementedCandidates := function(G, N)
+    cands := [];
     for R in NormalSubgroups(G) do
         M := R`subgroup;
-        if #M eq 1 then continue; end if;
-        if #M le #bestM then continue; end if;
+        if #M eq 1 or #M eq #G then continue; end if;
         if not (M subset N) then continue; end if;
+        if not IsAbelian(M) then continue; end if;
         ok := IsSplitKernel(G, M);
-        if ok then bestM := M; found := true; end if;
+        if ok then Append(~cands, M); end if;
     end for;
-    return found, bestM;
+    Sort(~cands, func< X, Y | #Y - #X >);
+    return cands;
 end function;
 
-// Reduce as far as possible.  Returns:
-//   ebp1       the reduced embedding problem (same B, C, f, phi)
-//   allAbelian true iff every M split off along the way was abelian
-//   steps      how many reductions were performed
-MaximalSplitReduction := function(ebp)
-    G  := ebp`G;
-    B  := ebp`B;
-    pi := ebp`pi;
-    allAbelian := true;
-    steps      := 0;
+// Depth-first search for a tower of abelian complemented layers reducing the
+// kernel to the trivial group.  Returns:
+//   done  true iff the kernel was reduced to 1
+//   G, pi the reduced problem (fully reduced if done, else the deepest
+//         all-abelian reduction found, which is still a sound handoff)
+ReduceTower := function(G, pi, B, depth)
+    N := Kernel(pi);
+    if #N eq 1 then return true, G, pi; end if;
+    if depth le 0 then return false, G, pi; end if;
 
-    while true do
-        N := Kernel(pi);
-        if #N eq 1 then break; end if;
+    cands := AbelianComplementedCandidates(G, N);
+    if #cands eq 0 then return false, G, pi; end if;
 
-        ok, M := SplitOffOnce(G, N);
-        if not ok then break; end if;
-
-        if not IsAbelian(M) then allAbelian := false; end if;
-
+    bestG := G; bestpi := pi; haveBest := false;
+    for M in cands do
         G1, q := quo< G | M >;
         // pi kills M, so it descends to G1.
-        pi := hom< G1 -> B | [ pi(G1.i @@ q) : i in [1..Ngens(G1)] ] >;
-        G  := G1;
-        steps +:= 1;
-    end while;
+        pi1 := hom< G1 -> B | [ pi(G1.i @@ q) : i in [1..Ngens(G1)] ] >;
+        done, G2, pi2 := $$(G1, pi1, B, depth - 1);
+        if done then return true, G2, pi2; end if;
+        if not haveBest then
+            bestG := G2; bestpi := pi2; haveBest := true;
+        end if;
+    end for;
+    return false, bestG, bestpi;
+end function;
 
+// Returns:
+//   ebp1       the reduced embedding problem (same B, C, f, phi)
+//   fullySplit true iff the kernel reduced to 1 through abelian layers
+MaximalSplitReduction := function(ebp)
+    fullySplit, G1, pi1 := ReduceTower(ebp`G, ebp`pi, ebp`B, 16);
     ebp1 := rec< EmbeddingProb |
-        B := B, G := G, C := ebp`C, f := ebp`f, pi := pi, phi := ebp`phi
+        B := ebp`B, G := G1, C := ebp`C, f := ebp`f, pi := pi1, phi := ebp`phi
     >;
-    return ebp1, allAbelian, steps;
+    return ebp1, fullySplit;
 end function;
