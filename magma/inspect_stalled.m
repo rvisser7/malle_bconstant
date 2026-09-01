@@ -85,12 +85,17 @@ InspectGroup := procedure(n, i)
         Kr := Kernel(ebp1`pi);
         isSplit  := IsSplitKernel(Gr, Kr);
         isDirect := IsDirectProductResidual(Gr, Kr);
+        // What the tower had available AT the residual.  A non-empty list
+        // here means ReduceTower stopped early -- a bug, not a missing
+        // certificate.
+        cands := NilpotentComplementedCandidates(Gr, Kr);
         printf "    b=%o  |B|=%o  UNCERT  G_r=%o (%o)  K_r=%o (%o)  "
-             * "split=%o direct=%o Kr_solv=%o local=%o\n",
+             * "split=%o direct=%o Kr_solv=%o local=%o  cands=%o\n",
             v[1], #ebp`B,
             GroupName(Gr), #Gr, GroupName(Kr), #Kr,
             isSplit, isDirect, IsSolvable(Kr),
-            PassesCheckedLocalTests(ebp);
+            PassesCheckedLocalTests(ebp),
+            [ #M : M in cands ];
     end for;
 end procedure;
 
