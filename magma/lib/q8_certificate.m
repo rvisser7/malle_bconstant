@@ -165,14 +165,3 @@ CertifyResidualQ8 := function(ebp1, d)
 
     return false, "unexpected Q8 shape";
 end function;
-
-// ---------------------------------------------------------------------
-// Top-level: does this pair certify a PROPER solution?
-// ---------------------------------------------------------------------
-CertifyAdmissible := function(ebp, d)
-    ebp1, fullySplit := MaximalSplitReduction(ebp);
-    if fullySplit then
-        return true, "fully split";
-    end if;
-    return CertifyResidualQ8(ebp1, d);
-end function;
