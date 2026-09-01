@@ -27,7 +27,10 @@
 //   undet     pairs admitted to the upper bound on an undetermined verdict
 //   central   pairs that could have raised the lower bound, whose residual
 //             is central, and which did not certify.  These are the ones a
-//             complete local decision at every place would close.
+//             complete local decision at every place would close.  The
+//             per-group column is every such pair; the TOTAL at the end
+//             counts only groups whose bracket stayed open, since on a
+//             collapsed bracket they were superseded and are noise.
 
 DiagnoseIndices := procedure(n, indices, orderingName)
     printf "degree %o, ordering %o: sound vs legacy local policy\n", n, orderingName;
@@ -42,8 +45,17 @@ DiagnoseIndices := procedure(n, indices, orderingName)
         Rs := FullCheck(G : Policy := DefaultLocalPolicy);
         Rl := FullCheck(G : Policy := LegacyLocalPolicy);
 
-        undetTotal   +:= Rs`undetermined_local;
-        centralTotal +:= Rs`central_residual_stalled;
+        undetTotal +:= Rs`undetermined_local;
+
+        // Count central stalls only for groups whose bracket actually
+        // stayed open.  On a group where L = U the stalled pairs were
+        // superseded by some other pair and are noise: the earlier version
+        // of this counter added them anyway, which made degree 12 look as
+        // though central.m had work to do there when every degree-12
+        // bracket had in fact collapsed.
+        if Rs`BW_lower_split ne Rs`BW_upper_local then
+            centralTotal +:= Rs`central_residual_stalled;
+        end if;
 
         if Rs`BW_lower_split ne Rl`BW_lower_split or
            Rs`BW_upper_local ne Rl`BW_upper_local then
@@ -57,6 +69,6 @@ DiagnoseIndices := procedure(n, indices, orderingName)
     end for;
 
     printf "%o of %o groups move under the correction\n", moved, #indices;
-    printf "undetermined verdicts: %o;  stalled central residuals: %o\n",
+    printf "undetermined verdicts: %o;  stalled central residuals (open brackets only): %o\n",
            undetTotal, centralTotal;
 end procedure;

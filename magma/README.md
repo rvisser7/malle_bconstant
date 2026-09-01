@@ -8,6 +8,8 @@ magma/
 ├── compute_prp.m            entry point, product-of-ramified-primes ordering
 ├── diagnose_disc.m          policy diagnostic, disc ordering
 ├── diagnose_prp.m           policy diagnostic, prp ordering
+├── verdicts_disc.m          per-pair verdict report, disc ordering
+├── verdicts_prp.m           per-pair verdict report, prp ordering
 ├── inspect_stalled.m        diagnostic: why did a b_W bracket not collapse?
 ├── why_no_candidates.m      diagnostic: dump the tower's candidate table
 ├── tests/                   see tests/README.md
@@ -46,7 +48,8 @@ as a bracket `[BW_lower_split, BW_upper_local]` with `b_M <= L <= U <= b_T`.
 `b_W` is known exactly when the bracket collapses.
 
 Phase 1 (which pairs `(pi, phi)` exist and what `b(pi, phi)` is) differs between
-the orderings and lives in the two `fullcheck.m` files. Phase 2 (the bracket) is
+the orderings and lives as `EvaluatePairs` in the two `fullcheck.m` files, where
+the verdict report also picks it up, so both enumerate the same pairs. Phase 2 (the bracket) is
 identical and lives once, in `bw_phase2.m`.
 
 ## The two bounds
@@ -79,7 +82,10 @@ prove only one direction:
 The upper bound excludes a pair only on a No. `central.m` fires only on an
 all-Yes. `LegacyLocalPolicy` reproduces the old both-ways-veto behaviour and
 exists only so that the diagnostics can measure how many published cells the
-correction moves. **Run `diagnose_disc.m` / `diagnose_prp.m` before recomputing any column.**
+correction moves. **Run `diagnose_disc.m` / `diagnose_prp.m` before recomputing any column.** When a
+group does move, `magma -b n:=<deg> i:=<idx> verdicts_disc.m` prints the verdict at
+every place for every pair that could raise the upper bound, which says which test
+and which prime caused it.
 
 ## Standing assumptions, in one place
 
