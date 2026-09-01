@@ -11,6 +11,11 @@ Pipeline, per degree n:
 Re-running is safe and resumable: only \\N rows are ever recomputed, so an
 interrupted run just picks up where it left off.
 
+With --retry-unresolved it also revisits rows that were processed before but
+whose b_W column is still \\N, which is what you want after the certificates or
+the local tests learn something new. It fills blanks only: a row whose stored
+values disagree with the freshly computed ones is reported and left alone.
+
 With --verify it instead recomputes rows that are ALREADY filled in, as if the
 data files were empty, and reports every cell where the fresh value disagrees
 with what is on disk. Nothing is written in this mode. Use --verify-sample to
@@ -187,6 +192,22 @@ def needs_compute(row, sentinel_off):
     return row[sentinel_off] == NULL
 
 
+def is_unresolved(row, wang_off):
+    """True for a row that was processed but whose b_W came out \\N.
+
+    The sentinel says only that a group has been through Magma, so once b_M is
+    written the row is skipped forever. That is right while the code is fixed,
+    and wrong after the code learns something new: a bracket that failed to
+    collapse under the old certificates may collapse under the new ones. 10T20
+    in the disc ordering is the case that prompted this -- b_M and b_T were
+    computed long ago, b_W was not, and the row was never revisited.
+
+    Note the asymmetry with --verify: this is not a correctness check, it is a
+    second attempt at cells that were honestly left blank.
+    """
+    return row[wang_off] == NULL
+
+
 def compare_row(label, old, new, colnames):
     """Compare four stored strings against four freshly computed ones.
 
@@ -319,6 +340,19 @@ def main():
                     help="with --quiet, print a progress line every K completed "
                          "chunks (0 to disable entirely; default 500)")
 
+    ap.add_argument("--retry-unresolved", action="store_true",
+                    help="also recompute rows that were already processed but "
+                         "whose wang column is still \\N, i.e. groups where an "
+                         "earlier run could determine b_M and b_T but not b_W. "
+                         "Use this after the certificates or the local tests "
+                         "improve. Existing non-null cells are never silently "
+                         "overwritten: a row whose stored values disagree with "
+                         "the new ones is reported and left alone unless "
+                         "--force-overwrite is given.")
+    ap.add_argument("--force-overwrite", action="store_true",
+                    help="with --retry-unresolved, write the new values even "
+                         "when they disagree with what is stored")
+
     grp = ap.add_argument_group("verification")
     grp.add_argument("--verify", action="store_true",
                      help="recompute rows that are ALREADY filled in, as if the "
@@ -338,10 +372,15 @@ def main():
 
     if args.verify_sample is not None and not args.verify:
         ap.error("--verify-sample only makes sense with --verify")
+    if args.retry_unresolved and args.verify:
+        ap.error("--retry-unresolved writes; --verify does not. Pick one.")
+    if args.force_overwrite and not args.retry_unresolved:
+        ap.error("--force-overwrite only makes sense with --retry-unresolved")
 
     cfg = ORDERINGS[args.ordering]
     target_offsets = [COLUMNS.index(c) for c in cfg["cols"]]
     sentinel_off = COLUMNS.index(cfg["sentinel"])
+    wang_off = COLUMNS.index(cfg["cols"][2])
     entry = args.entry or cfg["entry"]
 
     entry_path = os.path.join(args.magma_dir, entry)
@@ -384,15 +423,22 @@ def main():
                 if not args.quiet:
                     print(f"[plan] degree {n}: verifying all {len(targets)} groups")
         else:
-            targets = sorted(label_index(r[0]) for r in rows
-                             if needs_compute(r, sentinel_off))
+            fresh = [label_index(r[0]) for r in rows
+                     if needs_compute(r, sentinel_off)]
+            retry = []
+            if args.retry_unresolved:
+                retry = [label_index(r[0]) for r in rows
+                         if not needs_compute(r, sentinel_off)
+                         and is_unresolved(r, wang_off)]
+            targets = sorted(set(fresh) | set(retry))
             if not targets:
                 if not args.quiet:
                     print(f"[skip] degree {n}: complete ({len(rows)} groups)")
                 continue
             if not args.quiet:
+                extra = f" ({len(retry)} of them unresolved b_W)" if retry else ""
                 print(f"[plan] degree {n}: {len(targets)}/{len(rows)} groups "
-                      f"to compute")
+                      f"to compute{extra}")
 
         for c in chunked(targets, args.chunk_size):
             tasks.append((n, c))
@@ -472,8 +518,35 @@ def main():
                             log_mismatch(detail)
                             print(f"[MISMATCH] {detail}", flush=True)
                     else:
-                        for off, v in zip(target_offsets, vals):
-                            row[off] = v
+                        old_cells = [row[off] for off in target_offsets]
+                        conflict = None
+                        if args.retry_unresolved and not args.force_overwrite:
+                            verdict, detail = compare_row(row[0], old_cells,
+                                                          vals, cfg["cols"])
+                            if verdict == "mismatch":
+                                conflict = detail
+                        if conflict is not None:
+                            # A retry pass is meant to fill blanks. Anything
+                            # else is a change of value, which belongs in a
+                            # --verify pass with a human reading the output.
+                            tally["conflict"] += 1
+                            mismatches.append(conflict)
+                            log_mismatch(conflict)
+                            print(f"[CONFLICT, not written] {conflict}",
+                                  flush=True)
+                        else:
+                            filled = (args.retry_unresolved
+                                      and old_cells[2] == NULL
+                                      and vals[2] != NULL)
+                            for off, v in zip(target_offsets, vals):
+                                row[off] = v
+                            if filled:
+                                tally["filled"] += 1
+                                if not args.quiet:
+                                    print(f"[fill] {row[0]}: "
+                                          f"{cfg['cols'][2]}={vals[2]}, "
+                                          f"{cfg['cols'][3]}={vals[3]}",
+                                          flush=True)
 
                 done_chunks[n] += 1
                 n_done[0] += 1
@@ -496,6 +569,16 @@ def main():
     finally:
         if mlog[0] is not None:
             mlog[0].close()
+
+    if args.retry_unresolved:
+        print("=" * 60)
+        print(f"Retry pass over the {args.ordering} ordering:")
+        print(f"  newly determined b_W      : {tally['filled']}")
+        print(f"  conflicts, left untouched : {tally['conflict']}")
+        if tally["conflict"]:
+            print(f"\nConflicts appended to {args.mismatch_log}. These are rows "
+                  f"whose stored values disagree with the new ones; investigate "
+                  f"with --verify before using --force-overwrite.")
 
     if args.verify:
         print("=" * 60)
