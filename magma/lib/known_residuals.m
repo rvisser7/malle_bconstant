@@ -28,10 +28,12 @@
 //         irreducibility then gives infinitely many specialisations, and
 //         disjointness from one fixed abelian field is free).
 //
-// (2) GAR SHAPE  1 -> A_n -> S_n -> C_2 -> 1.
-//     Asks for an S_n-extension of Q with prescribed quadratic resolvent
-//     Q(phi).  This is exactly what the GAR property of A_n provides; see
-//     Malle-Matzat, "Inverse Galois Theory" [MM99].
+// (2) GAR.  Residual split, with kernel K having the GAR property over Q.
+//     If K has GAR over Q then EVERY split embedding problem with kernel K
+//     is properly solvable, for any B acting through Aut(K) -- not merely
+//     B = C_2.  See Malle-Matzat, "Inverse Galois Theory" [MM99], III.
+//     This covers A_n < S_n over C_2, but equally A_5 : C_4 over C_4 and
+//     PSL(2,7) < PGL(2,7) over C_2.
 //
 // (3) INDUCED / WREATH  G_r = T wr B with K = T^#B the base group.
 //     G_r-extensions with wreath quotient phi correspond to T-extensions of
@@ -50,20 +52,39 @@
 // Widen freely -- A_n and S_n have GAR for all n >= 5, the bound of 9 here
 // is only to keep the isomorphism tests cheap.
 // ---------------------------------------------------------------------
+// Groups with the GAR property over Q.  GAR is the strong condition: it
+// certifies ANY split embedding problem with this kernel.
+//
+// NEEDS CONFIRMATION before these values are published.  The entries are
+// standard but are cited from the literature, not verified here.
+HasGAROverQ := function(K)
+    for m in [5..9] do
+        if #K eq Factorial(m) div 2 and IsIsomorphic(K, Alt(m)) then
+            return true, Sprintf("A%o (GAR over Q, [MM99])", m);
+        end if;
+    end for;
+    if #K eq 168 and IsIsomorphic(K, PSL(2, 7)) then
+        return true, "PSL(2,7) (GAR over Q, [MM99])";
+    end if;
+    return false, "";
+end function;
+
+// Weaker: groups realisable over Q with infinitely many linearly disjoint
+// realisations.  Enough for the DIRECT PRODUCT branch only.
 KnownRegularOverQ := function(K)
     if IsSolvable(K) then
         return true, "solvable (Shafarevich)";
     end if;
+    gar, why := HasGAROverQ(K);
+    if gar then return true, why; end if;
     for m in [5..9] do
-        if #K eq Factorial(m) div 2 and IsIsomorphic(K, Alt(m)) then
-            return true, Sprintf("A%o (regular over Q(t))", m);
-        end if;
         if #K eq Factorial(m) and IsIsomorphic(K, Sym(m)) then
             return true, Sprintf("S%o (regular over Q(t))", m);
         end if;
     end for;
-    // PGammaL(2,8) = PSL(2,8).C3, order 1512.  Constructed defensively:
-    // if this call is not available in your Magma version, drop the clause.
+    if #K eq 336 and IsIsomorphic(K, PGL(2, 7)) then
+        return true, "PGL(2,7) (regular over Q(t))";
+    end if;
     if #K eq 1512 then
         try
             if IsIsomorphic(K, PGammaL(2, 8)) then
@@ -133,14 +154,11 @@ KnownResidualIsProperlySolvable := function(ebp1)
         return false, Sprintf("direct product but K (order %o) not in table", #K);
     end if;
 
-    // (2) GAR: A_n inside S_n over C_2
-    if #B eq 2 then
-        for m in [5..9] do
-            if #K eq Factorial(m) div 2 and #Gr eq Factorial(m)
-               and IsIsomorphic(K, Alt(m)) and IsIsomorphic(Gr, Sym(m)) then
-                return true, Sprintf("A%o < S%o over C2 (GAR, [MM99])", m, m);
-            end if;
-        end for;
+    // (2) GAR: split residual whose kernel has GAR over Q.  No constraint
+    // on B -- that is the whole point of GAR.
+    gar, whyGar := HasGAROverQ(K);
+    if gar then
+        return true, "split residual, kernel " cat whyGar;
     end if;
 
     // (3) induced / wreath
