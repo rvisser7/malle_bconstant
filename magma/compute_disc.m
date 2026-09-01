@@ -18,7 +18,9 @@
 load "lib/records.m";
 load "lib/splitting.m";
 load "lib/split_tower.m";
+load "lib/known_residuals.m";
 load "lib/q8_certificate.m";
+load "lib/certify.m";
 load "lib/local_tame.m";
 load "lib/wild_prop.m";
 load "lib/embedding_problems.m";
