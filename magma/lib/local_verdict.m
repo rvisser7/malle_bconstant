@@ -42,7 +42,8 @@
 //
 // POLICY.  DefaultLocalPolicy is the sound reading above.  LegacyLocalPolicy
 // reproduces the pre-refactor behaviour, in which (T) with p | #N and (W)
-// both veto.  Legacy is retained ONLY so that diagnose_policy.m can measure
+// both veto.  Legacy is retained ONLY so that diagnose_disc.m and
+// diagnose_prp.m can measure
 // how many published cells the correction moves; do not compute with it.
 //
 // Policy is threaded as an argument rather than read from a global: Magma

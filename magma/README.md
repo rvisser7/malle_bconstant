@@ -6,7 +6,8 @@ This folder holds all the mathematics.
 magma/
 ├── compute_disc.m           entry point, discriminant ordering
 ├── compute_prp.m            entry point, product-of-ramified-primes ordering
-├── diagnose_policy.m        how much does the local-policy correction move?
+├── diagnose_disc.m          policy diagnostic, disc ordering
+├── diagnose_prp.m           policy diagnostic, prp ordering
 ├── inspect_stalled.m        diagnostic: why did a b_W bracket not collapse?
 ├── why_no_candidates.m      diagnostic: dump the tower's candidate table
 ├── tests/                   see tests/README.md
@@ -77,8 +78,8 @@ prove only one direction:
 
 The upper bound excludes a pair only on a No. `central.m` fires only on an
 all-Yes. `LegacyLocalPolicy` reproduces the old both-ways-veto behaviour and
-exists only so that `diagnose_policy.m` can measure how many published cells the
-correction moves. **Run `diagnose_policy.m` before recomputing any column.**
+exists only so that the diagnostics can measure how many published cells the
+correction moves. **Run `diagnose_disc.m` / `diagnose_prp.m` before recomputing any column.**
 
 ## Standing assumptions, in one place
 
