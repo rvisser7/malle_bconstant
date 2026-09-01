@@ -50,14 +50,7 @@ FullCheck := function(G)
             ebp1_generated := false;
 
             if bval_int gt BWlowerSplit then
-                ebp1, fullySplit := MaximalSplitReduction(ebp);
-                ebp1_generated := true;
-
-                if fullySplit then
-                    autoSolved := true;
-                else
-                    autoSolved := CertifyResidualQ8(ebp1, d);
-                end if;
+                autoSolved := CertifyAdmissible(ebp, d);
                 
                 if autoSolved then
                     BWlowerSplit := bval_int;
