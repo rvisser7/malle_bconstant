@@ -2,43 +2,70 @@
 // certify.m  --  the certificate chain
 // =====================================================================
 //
-// Requires (load first): records.m, splitting.m, and every certificate
-// module it dispatches to: split_tower.m, known_residuals.m,
-// q8_certificate.m.  Load this LAST of the certificate files; the modules
-// it calls are peers and may be loaded in any order among themselves.
+// Requires (load first): records.m, splitting.m, split_tower.m,
+//   local_verdict.m, and every certificate module it dispatches to:
+//   certificates/shared.m, certificates/structural.m,
+//   certificates/central.m, certificates/q8.m.  Load this LAST of them.
 //
 // CertifyAdmissible answers one question: is this (pi, phi) pair PROPERLY
-// solvable?  A true return may raise BWlowerSplit.  It must never be used
-// to lower BWupperLocal, and a local test must never be used to raise
-// BWlowerSplit -- see "The two bounds" in magma/README.md.
+// solvable?  A true return may raise BWlowerSplit.
 //
-// The chain, in order of decreasing generality:
+// THE ONE ASYMMETRY THAT MATTERS.  A local test may never RAISE
+// BWlowerSplit on its own, and a certificate may never LOWER BWupperLocal.
+// certificates/central.m looks like a violation of the first rule and is
+// not: it uses local data only in the direction where a lift is exhibited
+// at every place, which over Q with a central kernel is equivalent to
+// proper solvability.  Every other certificate is field-theoretic or
+// group-theoretic.  See "The two bounds" in magma/README.md.
 //
-//   1. split_tower.m       nilpotent split tower down to the trivial
-//                          kernel; [NSW, (9.6.10)]
-//   2. known_residuals.m   table of residual shapes with citations
-//   3. q8_certificate.m    Witt's criterion for residual Q8 problems
+// Adding a certificate is now a new file under certificates/ plus one line
+// in CertificateChain, rather than another hand-written if-block.  Each
+// entry has the uniform signature
 //
-// The second return value is a citation string, true or false.  On failure
-// it is the residual table's reason, which is the more informative
-// diagnosis: it names the shape that was left over rather than merely
-// reporting that the shape was not Q8.
+//     f(ebp1, d, policy) -> ok, reason
+//
+// with ebp1 the maximally split-reduced residual.
 
-CertifyAdmissible := function(ebp, d)
+CertEntryStructural := function(ebp1, d, policy)
+    ok, why := StructuralResidualIsProperlySolvable(ebp1);
+    return ok, why;
+end function;
+
+CertEntryCentral := function(ebp1, d, policy)
+    ok, why := CertifyCentralResidual(ebp1, policy);
+    return ok, why;
+end function;
+
+CertEntryQ8 := function(ebp1, d, policy)
+    ok, why := CertifyResidualQ8(ebp1, d);
+    return ok, why;
+end function;
+
+// Order: cheapest and most general first.  central before q8 because it
+// subsumes the Q8 (a) shape and a good deal besides.
+CertificateChain := [*
+    < "structural", CertEntryStructural >,
+    < "central",    CertEntryCentral    >,
+    < "q8",         CertEntryQ8         >
+*];
+
+// Returns: ok, reason, ebp1.
+// ebp1 is handed back so callers do not repeat MaximalSplitReduction for
+// their diagnostics, as FullCheck used to.
+CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy)
     ebp1, fullySplit := MaximalSplitReduction(ebp);
     if fullySplit then
-        return true, "nilpotent split tower";
+        return true, "nilpotent split tower to trivial kernel", ebp1;
     end if;
 
-    ok, why := KnownResidualIsProperlySolvable(ebp1);
-    if ok then
-        return true, why;
-    end if;
+    reasons := "";
+    for entry in CertificateChain do
+        ok, why := entry[2](ebp1, d, Policy);
+        if ok then
+            return true, entry[1] cat ": " cat why, ebp1;
+        end if;
+        reasons := reasons cat entry[1] cat ": " cat why cat "; ";
+    end for;
 
-    okQ8, whyQ8 := CertifyResidualQ8(ebp1, d);
-    if okQ8 then
-        return true, whyQ8;
-    end if;
-
-    return false, why;
+    return false, reasons, ebp1;
 end function;

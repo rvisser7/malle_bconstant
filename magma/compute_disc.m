@@ -3,12 +3,16 @@
 // =====================================================================
 //
 // Loads the library in dependency order, then runs the command-line block.
-// The two entry points share four modules and differ in two: orbits.m and
-// fullcheck.m are genuinely different code between the orderings.
+// The two entry points differ in exactly two modules: lib/disc/orbits.m and
+// lib/disc/fullcheck.m.  Everything else, including the b_W bracket in
+// lib/bw_phase2.m, is shared.
 //
 // Load order matters. Magma resolves free identifiers in a function body at
-// definition time, so Gpiphi and bpiphi must exist before fullcheck.m defines
-// FullCheck.
+// definition time, so each module must precede its users:
+//   local_verdict  after local_tame and wild_prop
+//   certificates/  after local_verdict (central.m consumes it)
+//   certify        after every certificate module
+//   bw_phase2      after certify, before fullcheck
 //
 // `load` resolves paths relative to the current directory, so run this from
 // the magma/ directory (run_parallel.py sets cwd for you):
@@ -18,13 +22,17 @@
 load "lib/records.m";
 load "lib/splitting.m";
 load "lib/split_tower.m";
-load "lib/known_residuals.m";
-load "lib/q8_certificate.m";
-load "lib/certify.m";
 load "lib/local_tame.m";
 load "lib/wild_prop.m";
+load "lib/local_verdict.m";
+load "lib/certificates/shared.m";
+load "lib/certificates/structural.m";
+load "lib/certificates/central.m";
+load "lib/certificates/q8.m";
+load "lib/certify.m";
 load "lib/embedding_problems.m";
 load "lib/disc/orbits.m";        // <-- ordering-dependent
+load "lib/bw_phase2.m";
 load "lib/disc/fullcheck.m";     // <-- ordering-dependent
 load "lib/driver.m";
 

@@ -2,30 +2,29 @@
 // FullCheck -- PRODUCT OF RAMIFIED PRIMES ordering
 // =====================================================================
 //
-// Same two-phase structure as the disc version. Differences, all in the
-// prologue of Phase 1:
-//   * a := 1 is hardcoded (every non-identity element has index 1)
-//   * num_Smin := #G - 1
-//   * the skip test is "#N eq 1" rather than "#Sminpi eq 0"
-//   * bpiphi takes one argument, since there is no Smin to pass
-// Phase 2 is identical to the disc version.
+// Requires (load first): records.m, embedding_problems.m, prp/orbits.m,
+//                        bw_phase2.m
 //
-// Requires (load first): records.m, splitting.m, local_tame.m, embedding_problems.m, prp/orbits.m
-//                        embedding_problems.m, prp/orbits.m
+// Differences from the disc version, all in Phase 1:
+//   * a := 1 (every non-identity element has exponent 1 for rad)
+//   * num_Smin := #G - 1, and Smin meet Ker(pi) is just N minus identity,
+//     so the skip test is "#N eq 1"
+//   * d := Exponent(G), which is what lcm{ord(g) : exp(g) = exp(G)} becomes
+//     when every non-identity g is minimal
+//   * bpiphi takes one argument and works on conjugacy classes of N
+// Phase 2 is shared, in lib/bw_phase2.m.
 
-FullCheck := function(G)
+FullCheck := function(G : Policy := DefaultLocalPolicy)
     d := Exponent(G);
     T := Gpiphi(G, d);
 
-    bM := 0; 
+    bM := 0;
     bT := 0;
-    evaluated_pairs := []; 
+    evaluated_pairs := [];
 
-    // For product of ramified primes ordering, Malle's index 'a' is fundamentally 1.
     a := 1;
     num_Smin := #G - 1;
 
-    // Phase 1: Fast Orbit Evaluation
     for j := 1 to #T do
         ebp := T[j];
 
@@ -33,7 +32,7 @@ FullCheck := function(G)
         if #N eq 1 then continue; end if;
 
         numberSminInKer, bval := bpiphi(ebp);
-        bval_int := Integers()!bval; 
+        bval_int := Integers()!bval;
 
         if bval_int gt bT then bT := bval_int; end if;
 
@@ -44,87 +43,22 @@ FullCheck := function(G)
         Append(~evaluated_pairs, <j, ebp, bval_int>);
     end for;
 
-    BWlowerSplit := bM; 
-    BWupperLocal := bM;
-    splitCandidates := []; 
-    localCandidates := [];
+    BWlowerSplit, BWupperLocal, splitCandidates, localCandidates,
+        undetermined, centralStalled :=
+            BWBoundsFromPairs(d, evaluated_pairs, bM, bT, Policy);
 
-    // Phase 2: Heavy Local Checks (Threshold-Optimized)
-    if bM lt bT then
-        for item in evaluated_pairs do
-            j := item[1];
-            ebp := item[2];
-            bval_int := item[3];
-            
-            autoSolved := false;
-            ebp1_generated := false;
-
-            if bval_int gt BWlowerSplit then
-                autoSolved := CertifyAdmissible(ebp, d);
-
-                if autoSolved then
-                    BWlowerSplit := bval_int;
-
-                    // ebp1 is only wanted for the diagnostic fields below,
-                    // so pay for the reduction lazily.
-                    if not ebp1_generated then
-                        ebp1 := MaximalSplitReduction(ebp);
-                        ebp1_generated := true;
-                    end if;
-
-                    cand := rec< FullCheckCandidateFormat |
-                        pair_index        := j,
-                        b_value           := bval_int,
-                        B_order           := #ebp`B,
-                        Ker_order         := #Kernel(ebp`pi),
-                        passes_split      := true,
-                        passes_local      := false,
-                        reduced_G_order   := #ebp1`G,
-                        reduced_Ker_order := #Kernel(ebp1`pi)
-                    >;
-                    Append(~splitCandidates, cand);
-                end if;
-            end if;
-
-            if bval_int gt BWupperLocal then
-                okLocal := PassesCheckedLocalTestsWithWild(ebp);
-                
-                if okLocal then
-                    BWupperLocal := bval_int;
-
-                    if not ebp1_generated then
-                        ebp1 := MaximalSplitReduction(ebp);
-                    end if;
-
-                    cand := rec< FullCheckCandidateFormat |
-                        pair_index        := j,
-                        b_value           := bval_int,
-                        B_order           := #ebp`B,
-                        Ker_order         := #Kernel(ebp`pi),
-                        passes_split      := autoSolved, 
-                        passes_local      := true,
-                        reduced_G_order   := #ebp1`G,
-                        reduced_Ker_order := #Kernel(ebp1`pi)
-                    >;
-                    Append(~localCandidates, cand);
-                end if;
-            end if;
-            
-            if BWlowerSplit eq bT and BWupperLocal eq bT then
-                break;
-            end if;
-
-        end for;
-    end if;
-
-    assert BWlowerSplit le BWupperLocal;
-    R := rec< FullCheckResultFormat |
-        group_order      := #G, minimal_index    := a,
-        number_of_Smin   := num_Smin, number_of_pairs  := #T,
-        b_M              := bM, b_T              := bT,
-        BW_lower_split   := BWlowerSplit, BW_upper_local   := BWupperLocal,
-        split_candidates := splitCandidates, local_candidates := localCandidates
+    return rec< FullCheckResultFormat |
+        group_order              := #G,
+        minimal_index            := a,
+        number_of_Smin           := num_Smin,
+        number_of_pairs          := #T,
+        b_M                      := bM,
+        b_T                      := bT,
+        BW_lower_split           := BWlowerSplit,
+        BW_upper_local           := BWupperLocal,
+        split_candidates         := splitCandidates,
+        local_candidates         := localCandidates,
+        undetermined_local       := undetermined,
+        central_residual_stalled := centralStalled
     >;
-
-    return R;
 end function;

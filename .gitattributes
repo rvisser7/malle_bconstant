@@ -1,0 +1,6 @@
+# One line ending, everywhere. See scripts/normalise_line_endings.py for the
+# one-off fix to the files that were committed as CRLF.
+*.txt   text eol=lf
+*.m     text eol=lf
+*.py    text eol=lf
+*.md    text eol=lf
