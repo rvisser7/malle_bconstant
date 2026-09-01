@@ -87,7 +87,7 @@ FullCheck := function(G)
             end if;
 
             if bval_int gt BWupperLocal then
-                okLocal := PassesCheckedLocalTests(ebp);
+                okLocal := PassesCheckedLocalTestsWithWild(ebp);
                 
                 if okLocal then
                     BWupperLocal := bval_int;
