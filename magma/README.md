@@ -55,8 +55,11 @@ identical and lives once, in `bw_phase2.m`.
 ## The two bounds
 
 **Lower.** `BWlowerSplit` is the largest `b(pi, phi)` over pairs *proven properly
-solvable*. A pair is reduced by `split_tower.m` and then offered to the
-certificate chain in `certify.m`.
+solvable*. `split_tower.m` returns every dead end of the nilpotent split tower,
+and `certify.m` offers the chain all of them, stopping at the first that
+certifies. Picking one leaf in advance loses certificates: which residual a
+certificate can handle does not follow from its size, and both "first branch"
+and "smallest kernel" lose cases the other finds.
 
 **Upper.** `BWupperLocal` is the largest `b(pi, phi)` over pairs *not proven
 locally obstructed*.

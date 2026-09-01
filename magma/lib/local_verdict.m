@@ -210,17 +210,22 @@ LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60)
     N := Kernel(ebp`pi);
     bad := { r[1] : r in reports | r[2] eq LocalVerdictUnknown and r[1] ne 0 };
 
-    // (a) The split-tower residual, which the certificate chain computes
-    // anyway.  Free, and it is what settles 20T297.
-    ebp1 := MaximalSplitReduction(ebp);
-    K1 := Kernel(ebp1`pi);
-    if #K1 lt #N and #K1 gt 1 then
-        if LocalVerdict(ebp1, policy) eq LocalVerdictNo then
-            return LocalVerdictNo,
-                   Sprintf("split residual (kernel order %o) is locally obstructed", #K1),
-                   reports;
+    // (a) The split-tower dead ends, which the certificate chain computes
+    // anyway.  Free, and it is what settles 20T297.  Every leaf is a
+    // quotient of the original, so an obstruction on any one of them is
+    // inherited -- there is no reason to look at only one.
+    leaves := SplitReductionLeaves(ebp);
+    for k := 1 to #leaves do
+        K1 := Kernel(leaves[k]`pi);
+        if #K1 lt #N and #K1 gt 1 then
+            if LocalVerdict(leaves[k], policy) eq LocalVerdictNo then
+                return LocalVerdictNo,
+                       Sprintf("split-tower leaf %o (kernel order %o) is locally obstructed",
+                               k, #K1),
+                       reports;
+            end if;
         end if;
-    end if;
+    end for;
 
     // (b) Targeted scan: a quotient whose kernel order is prime to some
     // prime that is currently undetermined.

@@ -66,48 +66,76 @@ NilpotentComplementedCandidates := function(G, N)
     return cands;
 end function;
 
-// Depth-first search for a tower of complemented nilpotent layers reducing
-// the kernel to the trivial group.  Returns:
-//   done  true iff the kernel was reduced to 1
-//   G, pi the reduced problem: fully reduced if done, else the DEEPEST
-//         reduction found over all branches, i.e. the one with the smallest
-//         residual kernel.
+// Depth-first search for towers of complemented nilpotent layers.
+// Returns:
+//   done    true iff some branch reduced the kernel to 1
+//   leaves  if done, the single fully reduced problem; otherwise the DEAD
+//           ENDS of every branch, up to cap, as a list of <G, pi>
 //
-// FIXED: the failure handoff used to be whatever the FIRST candidate
-// produced, although the doc comment promised the deepest.  Since the
-// residual is what certificates/ then gets to work on, and a different
-// branch can leave a certifiable residual where another leaves an opaque
-// one, this was silently costing lower bounds.
-ReduceTower := function(G, pi, B, depth)
+// WHY ALL THE LEAVES.  Different branches leave different residuals, and
+// which of them a certificate can handle is not predictable from the
+// residual's size.  An earlier version returned the first branch's dead end;
+// then, to make the handoff match its own doc comment, it returned the one
+// with the smallest kernel.  Both are guesses, and both lose certificates
+// that the other would have found -- 15T95 in the prp ordering is a case
+// where the smallest-kernel leaf is opaque while another leaf certifies.
+//
+// There is no need to guess.  A proper solution of ANY leaf climbs back up
+// its own branch to a proper solution of the original, so the certificate
+// chain should simply be offered every leaf and stop at the first that
+// works.  Insolvability travels the other way and is likewise inherited from
+// any leaf, so the local machinery can use them all too.
+TowerLeaves := function(G, pi, B, depth, cap)
     N := Kernel(pi);
-    if #N eq 1 then return true, G, pi; end if;
-    if depth le 0 then return false, G, pi; end if;
+    if #N eq 1 then return true, [* <G, pi> *]; end if;
+    if depth le 0 then return false, [* <G, pi> *]; end if;
 
     cands := NilpotentComplementedCandidates(G, N);
-    if #cands eq 0 then return false, G, pi; end if;
+    if #cands eq 0 then return false, [* <G, pi> *]; end if;
 
-    bestG := G; bestpi := pi; bestKer := #N; haveBest := false;
+    leaves := [* *];
     for M in cands do
         G1, q := quo< G | M >;
         // pi kills M, so it descends to G1.
         pi1 := hom< G1 -> B | [ pi(G1.i @@ q) : i in [1..Ngens(G1)] ] >;
-        done, G2, pi2 := $$(G1, pi1, B, depth - 1);
-        if done then return true, G2, pi2; end if;
-        k2 := #Kernel(pi2);
-        if (not haveBest) or (k2 lt bestKer) then
-            bestG := G2; bestpi := pi2; bestKer := k2; haveBest := true;
-        end if;
+        done, L := $$(G1, pi1, B, depth - 1, cap);
+        if done then return true, L; end if;
+        for x in L do
+            if #leaves lt cap then Append(~leaves, x); end if;
+        end for;
+        if #leaves ge cap then break; end if;
     end for;
-    return false, bestG, bestpi;
+    if #leaves eq 0 then return false, [* <G, pi> *]; end if;
+    return false, leaves;
 end function;
 
+// Every dead end of the tower, as embedding problems sharing the original's
+// B, C, f, phi and d.  Second return value says whether the kernel reduced
+// to 1, in which case there is exactly one leaf and it is trivial.
+SplitReductionLeaves := function(ebp : Cap := 24)
+    fullySplit, L := TowerLeaves(ebp`G, ebp`pi, ebp`B, 16, Cap);
+    leaves := [* *];
+    for x in L do
+        Append(~leaves, rec< EmbeddingProb |
+            B := ebp`B, G := x[1], C := ebp`C, f := ebp`f,
+            pi := x[2], phi := ebp`phi, d := ebp`d >);
+    end for;
+    return leaves, fullySplit;
+end function;
+
+// Single-residual view, kept for callers that want one problem to report on:
+// the leaf with the smallest kernel.  Nothing decides anything on the basis
+// of this choice any more -- CertifyAdmissible and LocalVerdictWithQuotients
+// both work through SplitReductionLeaves.
+//
 // Returns:
-//   ebp1       the reduced embedding problem (same B, C, f, phi)
+//   ebp1       a reduced embedding problem (same B, C, f, phi)
 //   fullySplit true iff the kernel reduced to 1 through nilpotent layers
 MaximalSplitReduction := function(ebp)
-    fullySplit, G1, pi1 := ReduceTower(ebp`G, ebp`pi, ebp`B, 16);
-    ebp1 := rec< EmbeddingProb |
-        B := ebp`B, G := G1, C := ebp`C, f := ebp`f, pi := pi1, phi := ebp`phi, d := ebp`d
-    >;
-    return ebp1, fullySplit;
+    leaves, fullySplit := SplitReductionLeaves(ebp);
+    best := leaves[1];
+    for e in leaves do
+        if #Kernel(e`pi) lt #Kernel(best`pi) then best := e; end if;
+    end for;
+    return best, fullySplit;
 end function;

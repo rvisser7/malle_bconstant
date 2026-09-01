@@ -50,22 +50,49 @@ CertificateChain := [*
 *];
 
 // Returns: ok, reason, ebp1.
-// ebp1 is handed back so callers do not repeat MaximalSplitReduction for
-// their diagnostics, as FullCheck used to.
+//
+// The chain is offered EVERY dead end of the split tower, not one chosen
+// representative.  A proper solution of any leaf climbs back up its own
+// branch to a proper solution of the original, so stopping at the first leaf
+// that certifies is correct and choosing a leaf in advance is not: which
+// residual a certificate can handle does not follow from its size.  See the
+// note above TowerLeaves in split_tower.m.
+//
+// ebp1 is handed back so callers do not repeat the reduction for their
+// diagnostics: the certifying leaf on success, the smallest-kernel leaf on
+// failure.
 CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy)
-    ebp1, fullySplit := MaximalSplitReduction(ebp);
+    leaves, fullySplit := SplitReductionLeaves(ebp);
     if fullySplit then
-        return true, "nilpotent split tower to trivial kernel", ebp1;
+        return true, "nilpotent split tower to trivial kernel", leaves[1];
     end if;
 
-    reasons := "";
-    for entry in CertificateChain do
-        ok, why := entry[2](ebp1, d, Policy);
-        if ok then
-            return true, entry[1] cat ": " cat why, ebp1;
-        end if;
-        reasons := reasons cat entry[1] cat ": " cat why cat "; ";
+    best := leaves[1];
+    for e in leaves do
+        if #Kernel(e`pi) lt #Kernel(best`pi) then best := e; end if;
     end for;
 
-    return false, reasons, ebp1;
+    reasons := "";
+    for k := 1 to #leaves do
+        ebp1 := leaves[k];
+        for entry in CertificateChain do
+            ok, why := entry[2](ebp1, d, Policy);
+            if ok then
+                return true,
+                       Sprintf("leaf %o of %o (#G = %o, #Ker = %o), %o: %o",
+                               k, #leaves, #ebp1`G, #Kernel(ebp1`pi),
+                               entry[1], why),
+                       ebp1;
+            end if;
+            if k eq 1 then
+                reasons := reasons cat entry[1] cat ": " cat why cat "; ";
+            end if;
+        end for;
+    end for;
+
+    if #leaves gt 1 then
+        reasons := reasons cat Sprintf("(and no certificate on any of the "
+                                       cat "other %o leaves)", #leaves - 1);
+    end if;
+    return false, reasons, best;
 end function;

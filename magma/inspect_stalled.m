@@ -92,7 +92,7 @@ InspectGroup := procedure(n, i)
         isSplit  := IsSplitKernel(Gr, Kr);
         isDirect := IsDirectProductResidual(Gr, Kr);
         // What the tower had available AT the residual.  A non-empty list
-        // here means ReduceTower stopped early -- a bug, not a missing
+        // here means the tower search stopped early -- a bug, not a missing
         // certificate.
         cands := NilpotentComplementedCandidates(Gr, Kr);
         printf "    b=%o  |B|=%o  UNCERT  G_r=%o (%o)  K_r=%o (%o)  "
