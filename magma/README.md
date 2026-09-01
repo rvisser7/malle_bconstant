@@ -79,7 +79,13 @@ prove only one direction:
   through `G_{Q_p}(p)`, which is checked; and whether a full local lift forces
   the pro-`p` problem to be solvable is not established.
 
-The upper bound excludes a pair only on a No. `central.m` fires only on an
+The upper bound excludes a pair only on a No, and a No is inherited from any
+quotient: if `M` is normal in `G` with `M` inside `Ker(pi)`, a solution of the pair
+pushes forward to a solution of the quotient problem, so an obstruction on the
+quotient obstructs the pair. Since passing to a quotient shrinks the kernel, it can
+move the tame test at `p` into its exact case, which is how 20T297 is decided.
+`LocalVerdictWithQuotients` tries the split residual first, then normal subgroups
+chosen to kill a prime that is currently undetermined. `central.m` fires only on an
 all-Yes. `LegacyLocalPolicy` reproduces the old both-ways-veto behaviour and
 exists only so that the diagnostics can measure how many published cells the
 correction moves. **Run `diagnose_disc.m` / `diagnose_prp.m` before recomputing any column.** When a

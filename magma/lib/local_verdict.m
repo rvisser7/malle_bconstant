@@ -160,13 +160,99 @@ LocalVerdict := function(ebp, policy)
     return worst, reports;
 end function;
 
+
+// ---------------------------------------------------------------------
+// Obstructions inherited from quotients
+// ---------------------------------------------------------------------
+//
+// Requires MaximalSplitReduction, so split_tower.m must be loaded first --
+// it is.
+//
+// THE INFERENCE.  Let M be normal in G with M contained in N = Ker(pi), and
+// let E_M be the quotient problem
+//
+//     1 -> N/M -> G/M -pi_M-> B -> 1,     same phi.
+//
+// If psi solves E then q . psi solves E_M, since pi_M . q . psi = pi . psi =
+// phi.  So E_M insolvable implies E insolvable, at every place and globally.
+// No splitting, complement or nilpotency is needed: this direction is free
+// for EVERY such M.  (The converse fails, which is why the split tower has
+// to work so much harder for the LOWER bound.)
+//
+// WHY THIS MATTERS HERE.  The tame test at p is exact exactly when
+// p does not divide the kernel order.  Passing to a quotient SHRINKS the
+// kernel, so a p that divides #N and leaves the test undetermined may fail
+// to divide #(N/M) and become decidable.  20T297 in the disc ordering is
+// the case that prompted this: kernel of order 2500 leaves p = 5
+// undetermined, while the split residual has kernel of order 4, where the
+// same test at 5 proves insolvability outright -- and that verdict is
+// inherited by the original pair.
+//
+// So the search below is targeted: it only bothers with quotients that kill
+// a prime currently responsible for an UNK.
+
+QuotientEbp := function(ebp, M)
+    G1, q := quo< ebp`G | M >;
+    pi1 := hom< G1 -> ebp`B | [ ebp`pi(G1.i @@ q) : i in [1..Ngens(G1)] ] >;
+    return rec< EmbeddingProb |
+        B := ebp`B, G := G1, C := ebp`C, f := ebp`f,
+        pi := pi1, phi := ebp`phi, d := ebp`d >;
+end function;
+
+// Only the No direction is inherited, so a Yes or Unknown on a quotient
+// says nothing and is discarded.
+LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60)
+    v, reports := LocalVerdict(ebp, policy);
+    if v ne LocalVerdictUnknown then
+        return v, "direct", reports;
+    end if;
+
+    N := Kernel(ebp`pi);
+    bad := { r[1] : r in reports | r[2] eq LocalVerdictUnknown and r[1] ne 0 };
+
+    // (a) The split-tower residual, which the certificate chain computes
+    // anyway.  Free, and it is what settles 20T297.
+    ebp1 := MaximalSplitReduction(ebp);
+    K1 := Kernel(ebp1`pi);
+    if #K1 lt #N and #K1 gt 1 then
+        if LocalVerdict(ebp1, policy) eq LocalVerdictNo then
+            return LocalVerdictNo,
+                   Sprintf("split residual (kernel order %o) is locally obstructed", #K1),
+                   reports;
+        end if;
+    end if;
+
+    // (b) Targeted scan: a quotient whose kernel order is prime to some
+    // prime that is currently undetermined.
+    tried := 0;
+    for R in NormalSubgroups(ebp`G) do
+        if tried ge MaxQuotients then break; end if;
+        M := R`subgroup;
+        if #M eq 1 or M eq N or not (M subset N) then continue; end if;
+        quotOrder := #N div #M;
+        if not exists{ p : p in bad | quotOrder mod p ne 0 } then continue; end if;
+        tried +:= 1;
+        if LocalVerdict(QuotientEbp(ebp, M), policy) eq LocalVerdictNo then
+            return LocalVerdictNo,
+                   Sprintf("quotient by a normal subgroup of order %o is locally obstructed", #M),
+                   reports;
+        end if;
+    end for;
+
+    return LocalVerdictUnknown, "no obstructed quotient found", reports;
+end function;
+
 // Consumer 1: may this pair still contribute to the b_W upper bound?
+// Uses the quotient inference, since an obstruction on any quotient is an
+// obstruction on the pair.
 LocalTestsAllowPair := function(ebp, policy)
-    v := LocalVerdict(ebp, policy);
-    return v ne LocalVerdictNo, v;
+    v, why := LocalVerdictWithQuotients(ebp, policy);
+    return v ne LocalVerdictNo, v, why;
 end function;
 
 // Consumer 2: is the pair PROVEN locally solvable at every place?
+// Deliberately NOT quotient-aware: solvability of a quotient does not lift,
+// so only the pair's own all-Yes counts here.
 LocallySolvableEverywhere := function(ebp, policy)
     v := LocalVerdict(ebp, policy);
     return v eq LocalVerdictYes;

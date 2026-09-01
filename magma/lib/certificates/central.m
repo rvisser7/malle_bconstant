@@ -65,7 +65,12 @@ CertifyCentralResidual := function(ebp1, policy)
             cat "so solvable (Sha^2 = 0) and properly solvable (twist by H^1)", #K);
     end if;
     if v eq LocalVerdictNo then
-        return false, "central kernel, but locally obstructed";
+        // Worth more than a failed certificate.  This residual is a
+        // quotient of the original problem, and insolvability is inherited
+        // downwards, so a No here proves the ORIGINAL pair is insolvable.
+        // LocalVerdictWithQuotients makes that inference for the upper
+        // bound; here we only report it.
+        return false, "central kernel, but locally obstructed (inherited by the original pair)";
     end if;
     return false, "central kernel, but the local verdict is undetermined at some place";
 end function;

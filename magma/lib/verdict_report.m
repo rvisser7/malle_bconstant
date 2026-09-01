@@ -45,13 +45,18 @@ ReportVerdicts := procedure(n, i)
         if b le bM then continue; end if;
         shown +:= 1;
 
-        v, reports := LocalVerdict(ebp, DefaultLocalPolicy);
+        v, why_v, reports := LocalVerdictWithQuotients(ebp, DefaultLocalPolicy);
+        vdirect := LocalVerdict(ebp, DefaultLocalPolicy);
         vlegacy := LocalVerdict(ebp, LegacyLocalPolicy);
         ok, why, ebp1 := CertifyAdmissible(ebp, d);
 
         printf "\n  pair %o: b(pi,phi) = %o, #B = %o, #Ker(pi) = %o\n",
                j, b, #ebp`B, #Kernel(ebp`pi);
-        printf "    verdict: %o   (legacy: %o)\n", VerdictName(v), VerdictName(vlegacy);
+        printf "    verdict: %o   (direct: %o, legacy: %o)\n",
+               VerdictName(v), VerdictName(vdirect), VerdictName(vlegacy);
+        if v ne vdirect then
+            printf "      inherited: %o\n", why_v;
+        end if;
         for r in reports do
             printf "      %o: %o -- %o\n", PlaceName(r[1]), VerdictName(r[2]), r[3];
         end for;
