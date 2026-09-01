@@ -17,7 +17,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 26T14|1|2|2|1|\N|\N|\N|\N
 26T15|1|6|6|1|\N|\N|\N|\N
 26T16|1|1|1|0|\N|\N|\N|\N
-26T17|2|3|\N|\N|\N|\N|\N|\N
+26T17|2|3|3|1|\N|\N|\N|\N
 26T18|2|4|4|1|\N|\N|\N|\N
 26T19|2|3|3|1|\N|\N|\N|\N
 26T20|2|2|2|0|\N|\N|\N|\N
@@ -35,7 +35,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 26T32|1|1|1|0|\N|\N|\N|\N
 26T33|2|12|12|1|\N|\N|\N|\N
 26T34|2|7|\N|\N|\N|\N|\N|\N
-26T35|2|3|\N|\N|\N|\N|\N|\N
+26T35|2|3|3|1|\N|\N|\N|\N
 26T36|2|3|3|1|\N|\N|\N|\N
 26T37|2|7|7|1|\N|\N|\N|\N
 26T38|1|1|1|0|\N|\N|\N|\N
