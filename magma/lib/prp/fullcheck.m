@@ -61,9 +61,16 @@ FullCheck := function(G)
 
             if bval_int gt BWlowerSplit then
                 autoSolved := CertifyAdmissible(ebp, d);
-                
+
                 if autoSolved then
                     BWlowerSplit := bval_int;
+
+                    // ebp1 is only wanted for the diagnostic fields below,
+                    // so pay for the reduction lazily.
+                    if not ebp1_generated then
+                        ebp1 := MaximalSplitReduction(ebp);
+                        ebp1_generated := true;
+                    end if;
 
                     cand := rec< FullCheckCandidateFormat |
                         pair_index        := j,
