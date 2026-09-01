@@ -57,8 +57,10 @@ InspectGroup := procedure(n, i)
     bM := 0; bT := 0;
     pairs := [];
     for ebp in T do
-        if #SminIntersectionKerPi(ebp, Smin) eq 0 then continue; end if;
-        b := bpiphi(ebp, Smin);
+        // bpiphi returns TWO values: |Smin cap Ker(pi)| first, then the
+        // orbit count.  The second one is b(pi,phi).
+        numSmin, b := bpiphi(ebp, Smin);
+        if numSmin eq 0 then continue; end if;
         Append(~pairs, <b, ebp>);
         if IsTrivialQuotientEbp(ebp) then bM := b; end if;
         if b gt bT then bT := b; end if;
