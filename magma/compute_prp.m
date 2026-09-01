@@ -20,6 +20,7 @@ load "lib/splitting.m";
 load "lib/split_tower.m";
 load "lib/q8_certificate.m";
 load "lib/local_tame.m";
+load "lib/wild_prop.m";
 load "lib/embedding_problems.m";
 load "lib/prp/orbits.m";        // <-- ordering-dependent
 load "lib/prp/fullcheck.m";     // <-- ordering-dependent
