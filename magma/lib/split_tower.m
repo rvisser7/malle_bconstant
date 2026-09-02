@@ -73,18 +73,23 @@ end function;
 //           ENDS of every branch, up to cap, as a list of <G, pi>
 //
 // WHY ALL THE LEAVES.  Different branches leave different residuals, and
-// which of them a certificate can handle is not predictable from the
+// which of them a certificate can handle does not follow from the
 // residual's size.  An earlier version returned the first branch's dead end;
 // then, to make the handoff match its own doc comment, it returned the one
-// with the smallest kernel.  Both are guesses, and both lose certificates
-// that the other would have found -- 15T95 in the prp ordering is a case
-// where the smallest-kernel leaf is opaque while another leaf certifies.
+// with the smallest kernel.  Both are guesses, and a guess can only lose
+// certificates that the other choice would have found.
 //
 // There is no need to guess.  A proper solution of ANY leaf climbs back up
 // its own branch to a proper solution of the original, so the certificate
-// chain should simply be offered every leaf and stop at the first that
-// works.  Insolvability travels the other way and is likewise inherited from
-// any leaf, so the local machinery can use them all too.
+// chain is simply offered every leaf and stops at the first that works;
+// with nothing chosen, there is nothing to lose to.  Insolvability travels
+// the other way and is likewise inherited from any leaf, so the local
+// machinery uses them all too.
+//
+// No case in the current data is known to NEED this rather than a single
+// leaf: it was written while chasing 15T95, which turned out to have one
+// leaf and to be unaffected.  It is kept because the argument stands on its
+// own, not on that example.  The cost is bounded by Cap below.
 TowerLeaves := function(G, pi, B, depth, cap)
     N := Kernel(pi);
     if #N eq 1 then return true, [* <G, pi> *]; end if;

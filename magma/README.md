@@ -57,9 +57,10 @@ identical and lives once, in `bw_phase2.m`.
 **Lower.** `BWlowerSplit` is the largest `b(pi, phi)` over pairs *proven properly
 solvable*. `split_tower.m` returns every dead end of the nilpotent split tower,
 and `certify.m` offers the chain all of them, stopping at the first that
-certifies. Picking one leaf in advance loses certificates: which residual a
-certificate can handle does not follow from its size, and both "first branch"
-and "smallest kernel" lose cases the other finds.
+certifies. Picking one leaf in advance can only lose certificates, since which
+residual a certificate can handle does not follow from its size; offering all of
+them chooses nothing and so loses nothing. No case in the current data is known
+to require it, and the cost is bounded by `Cap` in `SplitReductionLeaves`.
 
 **Upper.** `BWupperLocal` is the largest `b(pi, phi)` over pairs *not proven
 locally obstructed*.
