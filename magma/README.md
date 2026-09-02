@@ -6,6 +6,8 @@ This folder holds all the mathematics.
 magma/
 ├── compute_disc.m           entry point, discriminant ordering
 ├── compute_prp.m            entry point, product-of-ramified-primes ordering
+├── bench_disc.m             Phase 1 / Phase 2 timing, disc ordering
+├── bench_prp.m              Phase 1 / Phase 2 timing, prp ordering
 ├── diagnose_disc.m          policy diagnostic, disc ordering
 ├── diagnose_prp.m           policy diagnostic, prp ordering
 ├── verdicts_disc.m          per-pair verdict report, disc ordering
@@ -49,7 +51,16 @@ as a bracket `[BW_lower_split, BW_upper_local]` with `b_M <= L <= U <= b_T`.
 
 Phase 1 (which pairs `(pi, phi)` exist and what `b(pi, phi)` is) differs between
 the orderings and lives as `EvaluatePairs` in the two `fullcheck.m` files, where
-the verdict report also picks it up, so both enumerate the same pairs. Phase 2 (the bracket) is
+the verdict report also picks it up, so both enumerate the same pairs.
+
+`Gpiphi` returns the pairs grouped by `pi`, and Phase 1 walks the groups. Every
+expensive thing in Phase 1 depends on `pi` alone -- `Kernel(pi)`, then
+`Classes(N)` and `ClassMap(N)` for prp or `Smin meet N` for disc -- so it is built
+once per `pi` in a `KernelCtx` and shared by every `phi` over it. `bpiphi` is kept
+as a reference implementation that rebuilds everything, and
+`tests/test_orbits_agree_*.m` asserts the two agree pair by pair. Use
+`bench_disc.m` / `bench_prp.m` to see which phase a slow group is actually slow
+in before optimising further. Phase 2 (the bracket) is
 identical and lives once, in `bw_phase2.m`.
 
 ## The two bounds

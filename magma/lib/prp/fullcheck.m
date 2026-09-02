@@ -19,7 +19,7 @@
 // Returns: d, a, #Smin, #pairs, b_M, b_T, evaluated_pairs.
 EvaluatePairs := function(G)
     d := Exponent(G);
-    T := Gpiphi(G, d);
+    T, groups := Gpiphi(G, d);
 
     bM := 0;
     bT := 0;
@@ -28,22 +28,27 @@ EvaluatePairs := function(G)
     a := 1;
     num_Smin := #G - 1;
 
-    for j := 1 to #T do
-        ebp := T[j];
+    // One pass per pi, not per pair.  Classes(N) and ClassMap(N) are the
+    // expensive part here and depend only on pi, so they are computed once
+    // per group of pairs instead of once per phi.
+    for grp in groups do
+        ctx := MakeKernelCtx(T[grp[1]]);
+        if #ctx`N eq 1 then continue; end if;
 
-        N := Kernel(ebp`pi);
-        if #N eq 1 then continue; end if;
+        for j in grp do
+            ebp := T[j];
 
-        numberSminInKer, bval := bpiphi(ebp);
-        bval_int := Integers()!bval;
+            numberSminInKer, bval := bpiphiCtx(ebp, ctx);
+            bval_int := Integers()!bval;
 
-        if bval_int gt bT then bT := bval_int; end if;
+            if bval_int gt bT then bT := bval_int; end if;
 
-        if IsTrivialQuotientEbp(ebp) then
-            if bval_int gt bM then bM := bval_int; end if;
-        end if;
+            if IsTrivialQuotientEbp(ebp) then
+                if bval_int gt bM then bM := bval_int; end if;
+            end if;
 
-        Append(~evaluated_pairs, <j, ebp, bval_int>);
+            Append(~evaluated_pairs, <j, ebp, bval_int>);
+        end for;
     end for;
 
     return d, a, num_Smin, #T, bM, bT, evaluated_pairs;

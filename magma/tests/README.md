@@ -4,6 +4,8 @@ Run from `magma/`, not from here:
 
     magma -b tests/test_q8_witt.m
     magma -b tests/test_wreath.m
+    magma -b tests/test_orbits_agree_disc.m
+    magma -b tests/test_orbits_agree_prp.m
     magma -b tests/run_disc_tests.m
     magma -b tests/run_prp_tests.m
 

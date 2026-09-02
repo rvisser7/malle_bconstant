@@ -15,16 +15,33 @@
 //
 // Requires (load first): records.m, embedding_problems.m
 
-// Orbit counting via BFS acting purely on Conjugacy Classes of N
-bpiphi := function(ebp)
+// Per-pi data, computed once and reused for every phi over that pi.
+//
+// This is where the time goes on a big group: Classes(N) and ClassMap(N) on
+// a kernel of order in the hundreds of thousands are expensive, they depend
+// only on pi, and the flat-list version recomputed them for every phi.
+KernelCtx := recformat< N, classes, cm, id_idx >;
+
+MakeKernelCtx := function(ebp)
+    N := Kernel(ebp`pi);
+    if #N eq 1 then
+        return rec< KernelCtx | N := N >;
+    end if;
+    cm := ClassMap(N);
+    return rec< KernelCtx |
+        N := N, classes := Classes(N), cm := cm, id_idx := cm(Id(N)) >;
+end function;
+
+// Orbit counting via BFS acting purely on conjugacy classes of N.
+bpiphiCtx := function(ebp, ctx)
     G := ebp`G; C := ebp`C; pi := ebp`pi; phi := ebp`phi; f := ebp`f;
-    N := Kernel(pi);
-    
+    N := ctx`N;
+
     if #N eq 1 then return 0, 0; end if;
 
-    N_classes := Classes(N);
-    cm := ClassMap(N);
-    id_idx := cm(Id(N));
+    N_classes := ctx`classes;
+    cm := ctx`cm;
+    id_idx := ctx`id_idx;
     
     action_maps := [];
     for c in Generators(C) do
@@ -70,4 +87,10 @@ bpiphi := function(ebp)
     
     // We return (#N - 1) as the size of the set we evaluated
     return (#N - 1), orbits;
+end function;
+
+// Reference implementation, kept as the thing the optimised path is tested
+// against in tests/test_orbits_agree.m.  Not used in production.
+bpiphi := function(ebp)
+    return bpiphiCtx(ebp, MakeKernelCtx(ebp));
 end function;

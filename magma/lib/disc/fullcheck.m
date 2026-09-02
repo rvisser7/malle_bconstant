@@ -14,28 +14,34 @@
 EvaluatePairs := function(G)
     a, Smin := MinIndex(G);
     d := LCM([ Order(s) : s in Smin ]);
-    T := Gpiphi(G, d);
+    T, groups := Gpiphi(G, d);
 
     bM := 0;
     bT := 0;
     evaluated_pairs := [];
 
-    for j := 1 to #T do
-        ebp := T[j];
+    // One pass per pi, not per pair.  Kernel(pi) and Smin meet N depend only
+    // on pi, so they are built once here and shared by every phi over it --
+    // and the "exp(Ker pi) > exp(G)" skip is decided once for the whole
+    // group of pairs rather than re-derived for each.
+    for grp in groups do
+        ctx := MakeKernelCtx(T[grp[1]], Smin);
+        if IsEmpty(ctx`Sminpi) then continue; end if;   // exp(Ker pi) > exp(G)
 
-        Sminpi := SminIntersectionKerPi(ebp, Smin);
-        if #Sminpi eq 0 then continue; end if;      // exp(Ker pi) > exp(G)
+        for j in grp do
+            ebp := T[j];
 
-        numberSminInKer, bval := bpiphi(ebp, Smin);
-        bval_int := Integers()!bval;
+            numberSminInKer, bval := bpiphiCtx(ebp, ctx);
+            bval_int := Integers()!bval;
 
-        if bval_int gt bT then bT := bval_int; end if;
+            if bval_int gt bT then bT := bval_int; end if;
 
-        if IsTrivialQuotientEbp(ebp) then
-            if bval_int gt bM then bM := bval_int; end if;
-        end if;
+            if IsTrivialQuotientEbp(ebp) then
+                if bval_int gt bM then bM := bval_int; end if;
+            end if;
 
-        Append(~evaluated_pairs, <j, ebp, bval_int>);
+            Append(~evaluated_pairs, <j, ebp, bval_int>);
+        end for;
     end for;
 
     return d, a, #Smin, #T, bM, bT, evaluated_pairs;

@@ -37,11 +37,22 @@ MinIndex := function(G)
     return min_ind, Setseq(Smin);
 end function;
 
-bpiphi := function(ebp, Smin)
+// Per-pi data, computed once and reused for every phi over that pi.
+KernelCtx := recformat< N, Sminpi >;
+
+MakeKernelCtx := function(ebp, Smin)
+    N := Kernel(ebp`pi);
+    return rec< KernelCtx | N := N, Sminpi := { s : s in Smin | s in N } >;
+end function;
+
+// The working version: takes the shared context instead of rebuilding
+// Kernel(pi) and Smin meet N, which the caller had already computed and
+// which do not depend on phi.
+bpiphiCtx := function(ebp, ctx)
     G := ebp`G; C := ebp`C; pi := ebp`pi; phi := ebp`phi; f := ebp`f;
-    N := Kernel(pi);
-    Sminpi := { s : s in Smin | s in N };
-    
+    N := ctx`N;
+    Sminpi := ctx`Sminpi;
+
     if IsEmpty(Sminpi) then return 0, 0; end if;
 
     action_pairs := [];
@@ -77,6 +88,12 @@ bpiphi := function(ebp, Smin)
         end while;
     end for;
     return #Sminpi, orbits;
+end function;
+
+// Reference implementation, kept as the thing the optimised path is tested
+// against in tests/test_orbits_agree.m.  Not used in production.
+bpiphi := function(ebp, Smin)
+    return bpiphiCtx(ebp, MakeKernelCtx(ebp, Smin));
 end function;
 
 SminIntersectionKerPi := function(ebp, Smin)
