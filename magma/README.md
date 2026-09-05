@@ -56,7 +56,16 @@ the verdict report also picks it up, so both enumerate the same pairs.
 `Gpiphi` returns the pairs grouped by `pi`, and Phase 1 walks the groups. Every
 expensive thing in Phase 1 depends on `pi` alone -- `Kernel(pi)`, then
 `Classes(N)` and `ClassMap(N)` for prp or `Smin meet N` for disc -- so it is built
-once per `pi` in a `KernelCtx` and shared by every `phi` over it. `bpiphi` is kept
+once per `pi` in a `KernelCtx` and shared by every `phi` over it.
+
+For prp the context goes further and caches the twisted action itself as
+permutations of the class indices: powering by `a = f(c)` depends only on the
+generator of `C`, conjugation depends only on `phi(c)` in `B` and composes over
+generators of `B`, so a pi group costs `(Ngens(B) + Ngens(C)) * #classes`
+ClassMap evaluations in total and each pair after that is array lookups. The
+previous cost was one ClassMap evaluation per class, per generator of `C`, per
+pair, which is what made groups like 24T24040 take tens of hours. The disc
+ordering still runs its BFS over elements and has not had the same treatment. `bpiphi` is kept
 as a reference implementation that rebuilds everything, and
 `tests/test_orbits_agree_*.m` asserts the two agree pair by pair. Use
 `bench_disc.m` / `bench_prp.m` to see which phase a slow group is actually slow

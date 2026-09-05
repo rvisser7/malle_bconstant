@@ -4,11 +4,17 @@
 //
 //     magma -b tests/test_orbits_agree_prp.m      (run from magma/)
 //
-// The per-pi caching in Phase 1 is a pure speed change and must not move a
-// single number.  This asserts that, pair by pair, on every group in the
-// list: the cached path bpiphiCtx agrees with the reference bpiphi, which
-// rebuilds its kernel data from scratch exactly as the pre-optimisation code
-// did.
+// The Phase 1 work is a pure speed change and must not move a single number.
+// This asserts that, pair by pair, bpiphiCtx agrees with the reference
+// bpiphi, which is the ORIGINAL algorithm: kernel data rebuilt from scratch
+// and a ClassMap evaluation inside the BFS inner loop.
+//
+// The two are now genuinely different algorithms, not one wrapping the
+// other. bpiphiCtx never calls ClassMap during the BFS at all: it composes
+// cached permutations of the class indices. So this test is carrying real
+// weight, and the group list should grow whenever a new shape of B or C
+// turns up -- in particular B with more than one generator, and d with more
+// than one generator of (Z/dZ)^*.
 //
 // Comparing b_M and b_T alone would not be enough -- they are maxima, and a
 // caching bug that corrupted one pair could easily leave the maximum intact.
@@ -17,7 +23,18 @@ load "lib/records.m";
 load "lib/embedding_problems.m";
 load "lib/prp/orbits.m";
 
-CASES := [ <6,5>, <8,10>, <10,20>, <12,131>, <15,95>, <16,1192> ];
+CASES := [
+    < 6,    5>,   // C3 wr C2, B cyclic
+    < 8,   10>,
+    < 8,   23>,   // d with (Z/dZ)^* non-cyclic
+    <10,   20>,
+    <12,  131>,   // C3 wr C4, Wang Example 3.5
+    <12,  218>,
+    <15,   95>,   // large kernel, 24 pairs over few pi
+    <16, 1192>,   // C4 wr C4, 64 pairs; B = C2 x C4, so multi-generator B
+    <16, 1863>,
+    <20,   27>
+];
 
 failures := 0;
 checked := 0;
