@@ -71,7 +71,7 @@ SplitReduction := function(ebp)
     end if;
     
     ebp1 := rec< EmbeddingProb |
-        B := ebp`B, G := G1, C := ebp`C, f := ebp`f, pi := pi1, phi := ebp`phi
+        B := ebp`B, G := G1, C := ebp`C, f := ebp`f, pi := pi1, phi := ebp`phi, d := ebp`d
     >;
     
     return ok, ebp1, N1, q1, H1, H2;

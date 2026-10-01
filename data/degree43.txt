@@ -1,13 +1,13 @@
 label|malle_b|malle_turkelli_b|malle_wang_b|malle_b_status|malle_b_prp|malle_turkelli_b_prp|malle_wang_b_prp|malle_b_status_prp
 text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 
-43T1|1|1|1|0|\N|\N|\N|\N
-43T2|1|1|1|0|\N|\N|\N|\N
-43T3|1|1|1|0|\N|\N|\N|\N
-43T4|1|1|1|0|\N|\N|\N|\N
-43T5|1|1|1|0|\N|\N|\N|\N
-43T6|1|1|1|0|\N|\N|\N|\N
-43T7|1|1|1|0|\N|\N|\N|\N
-43T8|1|1|1|0|\N|\N|\N|\N
-43T9|2|2|2|0|\N|\N|\N|\N
-43T10|1|1|1|0|\N|\N|\N|\N
+43T1|1|1|1|0|1|1|1|0
+43T2|1|1|1|0|2|2|2|0
+43T3|1|1|1|0|2|3|3|1
+43T4|1|1|1|0|4|6|6|1
+43T5|1|1|1|0|2|7|7|1
+43T6|1|1|1|0|4|14|14|1
+43T7|1|1|1|0|4|21|21|1
+43T8|1|1|1|0|8|42|42|1
+43T9|2|2|2|0|31658|31658|31658|0
+43T10|1|1|1|0|63260|63260|63260|0

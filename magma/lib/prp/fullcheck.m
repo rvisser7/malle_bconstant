@@ -2,121 +2,77 @@
 // FullCheck -- PRODUCT OF RAMIFIED PRIMES ordering
 // =====================================================================
 //
-// Same two-phase structure as the disc version. Differences, all in the
-// prologue of Phase 1:
-//   * a := 1 is hardcoded (every non-identity element has index 1)
-//   * num_Smin := #G - 1
-//   * the skip test is "#N eq 1" rather than "#Sminpi eq 0"
-//   * bpiphi takes one argument, since there is no Smin to pass
-// Phase 2 is identical to the disc version.
+// Requires (load first): records.m, embedding_problems.m, prp/orbits.m,
+//                        bw_phase2.m
 //
-// Requires (load first): records.m, splitting.m, local_tame.m, embedding_problems.m, prp/orbits.m
-//                        embedding_problems.m, prp/orbits.m
+// Differences from the disc version, all in Phase 1:
+//   * a := 1 (every non-identity element has exponent 1 for rad)
+//   * num_Smin := #G - 1, and Smin meet Ker(pi) is just N minus identity,
+//     so the skip test is "#N eq 1"
+//   * d := Exponent(G), which is what lcm{ord(g) : exp(g) = exp(G)} becomes
+//     when every non-identity g is minimal
+//   * bpiphi takes one argument and works on conjugacy classes of N
+// Phase 2 is shared, in lib/bw_phase2.m.
 
-FullCheck := function(G)
-    T := Gpiphi(G);
+// Phase 1, exposed so that the verdict reporter enumerates exactly the same
+// pairs as FullCheck rather than a second copy of this loop.
+// Returns: d, a, #Smin, #pairs, b_M, b_T, evaluated_pairs.
+EvaluatePairs := function(G)
+    d := Exponent(G);
+    T, groups := Gpiphi(G, d);
 
-    bM := 0; 
+    bM := 0;
     bT := 0;
-    evaluated_pairs := []; 
+    evaluated_pairs := [];
 
-    // For product of ramified primes ordering, Malle's index 'a' is fundamentally 1.
     a := 1;
     num_Smin := #G - 1;
 
-    // Phase 1: Fast Orbit Evaluation
-    for j := 1 to #T do
-        ebp := T[j];
+    // One pass per pi, not per pair.  Classes(N) and ClassMap(N) are the
+    // expensive part here and depend only on pi, so they are computed once
+    // per group of pairs instead of once per phi.
+    for grp in groups do
+        ctx := MakeKernelCtx(T[grp[1]]);
+        if #ctx`N eq 1 then continue; end if;
 
-        N := Kernel(ebp`pi);
-        if #N eq 1 then continue; end if;
+        for j in grp do
+            ebp := T[j];
 
-        numberSminInKer, bval := bpiphi(ebp);
-        bval_int := Integers()!bval; 
+            numberSminInKer, bval := bpiphiCtx(ebp, ctx);
+            bval_int := Integers()!bval;
 
-        if bval_int gt bT then bT := bval_int; end if;
+            if bval_int gt bT then bT := bval_int; end if;
 
-        if IsTrivialQuotientEbp(ebp) then
-            if bval_int gt bM then bM := bval_int; end if;
-        end if;
+            if IsTrivialQuotientEbp(ebp) then
+                if bval_int gt bM then bM := bval_int; end if;
+            end if;
 
-        Append(~evaluated_pairs, <j, ebp, bval_int>);
+            Append(~evaluated_pairs, <j, ebp, bval_int>);
+        end for;
     end for;
 
-    BWlowerSplit := bM; 
-    BWupperLocal := bM;
-    splitCandidates := []; 
-    localCandidates := [];
+    return d, a, num_Smin, #T, bM, bT, evaluated_pairs;
+end function;
 
-    // Phase 2: Heavy Local Checks (Threshold-Optimized)
-    if bM lt bT then
-        for item in evaluated_pairs do
-            j := item[1];
-            ebp := item[2];
-            bval_int := item[3];
-            
-            autoSolved := false;
-            ebp1_generated := false;
+FullCheck := function(G : Policy := DefaultLocalPolicy)
+    d, a, num_Smin, nPairs, bM, bT, evaluated_pairs := EvaluatePairs(G);
 
-            if bval_int gt BWlowerSplit then
-                autoSolved, ebp1, N1, q1, H1, H2 := SplitReduction(ebp);
-                ebp1_generated := true;
-                
-                if autoSolved then
-                    BWlowerSplit := bval_int;
+    BWlowerSplit, BWupperLocal, splitCandidates, localCandidates,
+        undetermined, centralStalled :=
+            BWBoundsFromPairs(d, evaluated_pairs, bM, bT, Policy);
 
-                    cand := rec< FullCheckCandidateFormat |
-                        pair_index        := j,
-                        b_value           := bval_int,
-                        B_order           := #ebp`B,
-                        Ker_order         := #Kernel(ebp`pi),
-                        passes_split      := true,
-                        passes_local      := false,
-                        reduced_G_order   := #ebp1`G,
-                        reduced_Ker_order := #Kernel(ebp1`pi)
-                    >;
-                    Append(~splitCandidates, cand);
-                end if;
-            end if;
-
-            if bval_int gt BWupperLocal then
-                okLocal := PassesCheckedLocalTests(ebp);
-                
-                if okLocal then
-                    BWupperLocal := bval_int;
-
-                    if not ebp1_generated then
-                        _, ebp1, _, _, _, _ := SplitReduction(ebp);
-                    end if;
-
-                    cand := rec< FullCheckCandidateFormat |
-                        pair_index        := j,
-                        b_value           := bval_int,
-                        B_order           := #ebp`B,
-                        Ker_order         := #Kernel(ebp`pi),
-                        passes_split      := autoSolved, 
-                        passes_local      := true,
-                        reduced_G_order   := #ebp1`G,
-                        reduced_Ker_order := #Kernel(ebp1`pi)
-                    >;
-                    Append(~localCandidates, cand);
-                end if;
-            end if;
-            
-            if BWlowerSplit eq bT and BWupperLocal eq bT then
-                break;
-            end if;
-
-        end for;
-    end if;
-
-    R := rec< FullCheckResultFormat |
-        group_order      := #G, minimal_index    := a,
-        number_of_Smin   := num_Smin, number_of_pairs  := #T,
-        b_M              := bM, b_T              := bT,
-        BW_lower_split   := BWlowerSplit, BW_upper_local   := BWupperLocal,
-        split_candidates := splitCandidates, local_candidates := localCandidates
+    return rec< FullCheckResultFormat |
+        group_order              := #G,
+        minimal_index            := a,
+        number_of_Smin           := num_Smin,
+        number_of_pairs          := nPairs,
+        b_M                      := bM,
+        b_T                      := bT,
+        BW_lower_split           := BWlowerSplit,
+        BW_upper_local           := BWupperLocal,
+        split_candidates         := splitCandidates,
+        local_candidates         := localCandidates,
+        undetermined_local       := undetermined,
+        central_residual_stalled := centralStalled
     >;
-
-    return R;
 end function;
