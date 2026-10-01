@@ -3,7 +3,7 @@
 // =====================================================================
 //
 // Requires (load first): records.m, split_tower.m, local_verdict.m,
-//                        certify.m
+//                        certify.m, certificates/central.m
 //
 // Phase 1 (which pairs exist, and what b(pi,phi) is) genuinely differs
 // between disc and prp and stays in the two fullcheck.m files.  Phase 2 was
@@ -27,9 +27,31 @@
 // assumes anyway, since otherwise N_k(G, X) = 0 and there is no b to
 // predict.
 //
-// GREEDY SKIPPING.  A pair is examined only when its b-value exceeds the
-// current bound, which cannot lose the maximum: a pair with a smaller value
-// could not raise it.  The loop stops as soon as both bounds reach b_T.
+// ORDER OF WORK (new).  Pairs are processed in DECREASING b, and each pair
+// gets the local test before the certificate chain:
+//
+//   * the first pair not proven locally obstructed fixes BWupperLocal --
+//     every later pair has smaller or equal b and cannot raise it;
+//   * a pair proven obstructed cannot be properly solvable, so under the
+//     sound policy it is never sent to CertifyAdmissible (the old order ran
+//     the whole split tower and certificate chain on it first);
+//   * the first certified pair fixes BWlowerSplit, and the loop stops.
+//
+// Under LegacyLocalPolicy a No is not a proof, so obstructed pairs are still
+// offered to the certificates there, exactly as before; the contradiction
+// assert at the end keeps its meaning.
+//
+// THE TOWER CACHE.  The split tower depends on (G, pi) and not on phi, and it
+// used to be rebuilt up to three times per pair (certificates, local
+// quotients, diagnostics).  It is now built once per pi.  In Gpiphi's output
+// distinct pi have distinct kernels, so the kernel is the cache key.
+//
+// DIAGNOSTIC FIELDS.  undetermined_local is now 0 or 1: whether the pair
+// that fixed BWupperLocal was admitted on an UNDETERMINED verdict (if 0, the
+// sound/legacy policy difference cannot have moved the upper bound).
+// central_residual_stalled counts the pairs examined above the final lower
+// bound whose residual is central and which did not certify.  Both used to
+// depend on Gpiphi's enumeration order; now they do not.
 
 BWBoundsFromPairs := function(d, evaluated_pairs, bM, bT, policy)
     BWlowerSplit := bM;
@@ -43,86 +65,89 @@ BWBoundsFromPairs := function(d, evaluated_pairs, bM, bT, policy)
         return bM, bM, splitCandidates, localCandidates, undetermined, centralStalled;
     end if;
 
-    for item in evaluated_pairs do
+    sound := policy`name eq "sound";
+    pairs := Sort(evaluated_pairs, func< x, y | y[3] - x[3] >);
+    upperDone := false;
+    towerCache := [* *];   // entries < Kernel(pi), SplitTowerRaw >
+
+    for item in pairs do
         j        := item[1];
         ebp      := item[2];
         bval_int := item[3];
 
-        autoSolved := false;
-        haveEbp1   := false;
-        ebp1       := ebp;
-        why        := "";
+        if bval_int le BWlowerSplit then break; end if;
 
-        if bval_int gt BWlowerSplit then
-            autoSolved, why, ebp1 := CertifyAdmissible(ebp, d : Policy := policy);
-            haveEbp1 := true;
-
-            if autoSolved then
-                BWlowerSplit := bval_int;
-                Append(~splitCandidates, rec< FullCheckCandidateFormat |
-                    pair_index        := j,
-                    b_value           := bval_int,
-                    B_order           := #ebp`B,
-                    Ker_order         := #Kernel(ebp`pi),
-                    passes_split      := true,
-                    passes_local      := false,
-                    reduced_G_order   := #ebp1`G,
-                    reduced_Ker_order := #Kernel(ebp1`pi),
-                    certificate       := why,
-                    local_verdict     := LocalVerdictUnknown
-                >);
-            end if;
+        // Tower for this pi, built once.
+        K := Kernel(ebp`pi);
+        raw := false;
+        for t in towerCache do
+            if t[1] eq K then raw := t[2]; break; end if;
+        end for;
+        if Type(raw) eq BoolElt then
+            raw := SplitTowerRaw(ebp);
+            Append(~towerCache, < K, raw >);
         end if;
 
-        if bval_int gt BWupperLocal then
-            allow, v := LocalTestsAllowPair(ebp, policy);
+        // Local test only while the upper bound is still open.  Once it is
+        // fixed, every remaining pair has b <= BWupperLocal and only the
+        // lower bound is in play, so the (possibly expensive) quotient scan
+        // is skipped and the pair goes straight to the certificates.  That
+        // keeps the local work no larger than in the old greedy loop.
+        if not upperDone then
+            allow, v := LocalTestsAllowPair(ebp, policy : Raw := raw);
             if allow then
                 BWupperLocal := bval_int;
-                if v eq LocalVerdictUnknown then
-                    undetermined +:= 1;
-                end if;
-                if not haveEbp1 then
-                    ebp1 := MaximalSplitReduction(ebp);
-                    haveEbp1 := true;
-                end if;
+                upperDone := true;
+                if v eq LocalVerdictUnknown then undetermined +:= 1; end if;
+                ebp1 := MaximalSplitReduction(ebp : Raw := raw);
                 Append(~localCandidates, rec< FullCheckCandidateFormat |
                     pair_index        := j,
                     b_value           := bval_int,
                     B_order           := #ebp`B,
-                    Ker_order         := #Kernel(ebp`pi),
-                    passes_split      := autoSolved,
+                    Ker_order         := #K,
+                    passes_split      := false,
                     passes_local      := true,
                     reduced_G_order   := #ebp1`G,
                     reduced_Ker_order := #Kernel(ebp1`pi),
-                    certificate       := why,
+                    certificate       := "",
                     local_verdict     := v
                 >);
+            elif sound then
+                continue;   // proven obstructed: cannot be properly solvable
             end if;
         end if;
 
-        // Diagnostic only: a pair that could have raised the lower bound,
-        // whose residual is central, and which did not certify.  With a
-        // complete local decision at every place this one would close.
-        if (not autoSolved) and (bval_int gt BWlowerSplit) then
-            if not haveEbp1 then
-                ebp1 := MaximalSplitReduction(ebp);
-                haveEbp1 := true;
-            end if;
-            if IsCentralResidual(ebp1) then
-                centralStalled +:= 1;
-            end if;
+        autoSolved, why, ebp1 := CertifyAdmissible(ebp, d : Policy := policy, Raw := raw);
+        if autoSolved then
+            BWlowerSplit := bval_int;
+            Append(~splitCandidates, rec< FullCheckCandidateFormat |
+                pair_index        := j,
+                b_value           := bval_int,
+                B_order           := #ebp`B,
+                Ker_order         := #K,
+                passes_split      := true,
+                passes_local      := false,
+                reduced_G_order   := #ebp1`G,
+                reduced_Ker_order := #Kernel(ebp1`pi),
+                certificate       := why,
+                local_verdict     := LocalVerdictUnknown
+            >);
+            break;   // sorted: nothing later can raise either bound
         end if;
 
-        if BWlowerSplit eq bT and BWupperLocal eq bT then
-            break;
+        // Diagnostic only: could have raised the lower bound, central
+        // residual, did not certify.  A complete local decision at every
+        // place would close it.
+        if IsCentralResidual(ebp1) then
+            centralStalled +:= 1;
         end if;
     end for;
 
     // A certificate says "properly solvable", a No verdict says "not even
-    // locally solvable".  Both cannot hold, so this assert is a real
-    // contradiction detector -- for the sound policy.  Under
-    // LegacyLocalPolicy a No is not a proof, so it can fire legitimately;
-    // that is a finding, not a crash to work around.
+    // locally solvable".  Under the sound policy both cannot hold, so this
+    // assert is a real contradiction detector.  Under LegacyLocalPolicy a No
+    // is not a proof, so it can fire legitimately; that is a finding, not a
+    // crash to work around.
     assert BWlowerSplit le BWupperLocal;
 
     return BWlowerSplit, BWupperLocal, splitCandidates, localCandidates,

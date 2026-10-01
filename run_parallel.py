@@ -38,7 +38,7 @@ import subprocess
 import random
 import tempfile
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 
 # --------------------------------------------------------------------------
 # File schema  (must match the generator that created the data files)
@@ -233,13 +233,62 @@ def compare_row(label, old, new, colnames):
 # --------------------------------------------------------------------------
 #  Worker: one Magma invocation over a chunk of indices for a single degree
 # --------------------------------------------------------------------------
+def parse_outfile(outfile):
+    """Read a (possibly partial) Magma output file.
+
+    Lines are  index|b_M|b_T|lo|up[|seconds]  or  index|ERROR|message.
+    Returns (results, errors, seconds) keyed by group index.  Anything
+    unparseable -- e.g. a last line cut off by a kill -- is ignored, so that
+    group simply counts as unfinished.
+    """
+    results, errors, seconds = {}, {}, {}
+    if not os.path.exists(outfile):
+        return results, errors, seconds
+    with open(outfile) as f:
+        for ln in f:
+            ln = ln.strip()
+            if not ln or ln.startswith("index|"):
+                continue
+            parts = ln.split("|")
+            try:
+                i = int(parts[0])
+            except ValueError:
+                continue
+            if len(parts) >= 2 and parts[1] == "ERROR":
+                errors[i] = "|".join(parts[2:]).strip()
+                continue
+            if len(parts) < 5:
+                continue
+            try:
+                results[i] = tuple(int(x) for x in parts[1:5])
+            except ValueError:
+                continue
+            if len(parts) >= 6:
+                try:
+                    seconds[i] = float(parts[5])
+                except ValueError:
+                    pass
+    return results, errors, seconds
+
+
 def run_chunk(args):
+    """Run one chunk.  Returns (n, results, errors, seconds, unfinished,
+    timed_out).
+
+    A timeout no longer throws the chunk away: the driver writes each group's
+    line as soon as it finishes, so everything finished before the kill is
+    read back, and only the unfinished indices are reported (the caller
+    re-queues them one per chunk, so one slow group cannot take others down
+    with it).
+    """
     n, indices, workdir, magma, entry, magma_dir, timeout = args
-    tag = f"{n}_{indices[0]}_{indices[-1]}"
+    tag = f"{n}_{indices[0]}_{indices[-1]}_{len(indices)}"
     idxfile = os.path.join(workdir, f"idx_{tag}.txt")
     outfile = os.path.join(workdir, f"out_{tag}.txt")
     with open(idxfile, "w") as f:
         f.write(" ".join(map(str, indices)))
+    if os.path.exists(outfile):
+        os.remove(outfile)
 
     # cwd = magma/ so that the `load "lib/..."` lines in the entry point
     # resolve.  idxfile/outfile are absolute, so they are unaffected.
@@ -250,14 +299,19 @@ def run_chunk(args):
     # the error surfaces here instead of hanging the whole pool.
     cmd = [magma, "-b", f"n:={n}",
            f"idxfile:={idxfile}", f"outfile:={outfile}", entry]
-    proc = subprocess.run(cmd, cwd=magma_dir, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                          text=True, timeout=timeout)
+    timed_out = False
+    proc = None
+    try:
+        proc = subprocess.run(cmd, cwd=magma_dir, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                              text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        timed_out = True          # subprocess.run has already killed Magma
 
     # Magma exits 0 even when a script raises, so a nonzero code is not the
     # only failure mode -- a missing output file is the real signal.  Either
     # way, surface what Magma actually said instead of swallowing it.
-    if proc.returncode != 0 or not os.path.exists(outfile):
+    if not timed_out and (proc.returncode != 0 or not os.path.exists(outfile)):
         why = (f"exit code {proc.returncode}" if proc.returncode != 0
                else "produced no output file")
         out = (proc.stdout or "").strip()
@@ -284,15 +338,9 @@ def run_chunk(args):
             f"    cwd:     {magma_dir}\n"
             f"    --- last lines of Magma output ---\n{tail}{hint}")
 
-    results = {}
-    with open(outfile) as f:
-        for ln in f:
-            ln = ln.strip()
-            if not ln or ln.startswith("index|"):
-                continue
-            i, bM, bT, lo, up = (int(x) for x in ln.split("|"))
-            results[i] = (bM, bT, lo, up)
-    return n, results
+    results, errors, seconds = parse_outfile(outfile)
+    unfinished = [i for i in indices if i not in results and i not in errors]
+    return n, results, errors, seconds, unfinished, timed_out
 
 
 # --------------------------------------------------------------------------
@@ -329,6 +377,14 @@ def main():
                          "(default depends on --ordering)")
     ap.add_argument("--workdir", default=None,
                     help="scratch dir for idx/out files (default: a temp dir)")
+    ap.add_argument("--timing-log", default=None, metavar="PATH",
+                    help="append 'label seconds' for every computed group "
+                         "(Magma CPU time), to find the slow ones")
+    ap.add_argument("--error-log",
+                    default=os.path.join(REPO_ROOT, "bconstant_errors.log"),
+                    help="where to APPEND per-group Magma errors and groups "
+                         "that timed out on their own "
+                         "(default: <repo>/bconstant_errors.log)")
     ap.add_argument("--dry-run", action="store_true",
                     help="just report what's missing; don't call Magma")
     ap.add_argument("--quiet", action="store_true",
@@ -483,89 +539,122 @@ def main():
     for n, _ in tasks:
         expected[n] += 1
 
+    def log_line(path, line):
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+
     try:
         with ProcessPoolExecutor(max_workers=args.workers) as ex:
-            futs = {ex.submit(run_chunk, p): (p[0], p[1]) for p in payloads}
-            for fut in as_completed(futs):
-                n, chunk = futs[fut]
-                try:
-                    _, results = fut.result()
-                except Exception as e:
-                    n_failed[0] += 1
-                    if n_failed[0] == 1:
-                        print("\n" + "!" * 60)
-                        print(f"FIRST FAILURE -- degree {n} chunk "
-                              f"{chunk[0]}..{chunk[-1]}:\n{e}")
-                        print("!" * 60 + "\n", flush=True)
-                    else:
-                        print(f"[ERR ] degree {n} chunk {chunk[0]}..{chunk[-1]}: "
-                              f"{type(e).__name__} (left as \\N, will retry)",
-                              flush=True)
-                    continue
-
-                st = state[n]
-                for i, (bM, bT, lo, up) in results.items():
-                    vals = b_values(bM, bT, lo, up)
-                    row = st["idx_to_row"][i]
-
-                    if args.verify:
-                        old = [row[off] for off in target_offsets]
-                        verdict, detail = compare_row(row[0], old, vals,
-                                                      cfg["cols"])
-                        tally[verdict] += 1
-                        if verdict == "mismatch":
-                            mismatches.append(detail)
-                            log_mismatch(detail)
-                            print(f"[MISMATCH] {detail}", flush=True)
-                    else:
-                        old_cells = [row[off] for off in target_offsets]
-                        conflict = None
-                        if args.retry_unresolved and not args.force_overwrite:
-                            verdict, detail = compare_row(row[0], old_cells,
-                                                          vals, cfg["cols"])
-                            if verdict == "mismatch":
-                                conflict = detail
-                        if conflict is not None:
-                            # A retry pass is meant to fill blanks. Anything
-                            # else is a change of value, which belongs in a
-                            # --verify pass with a human reading the output.
-                            tally["conflict"] += 1
-                            mismatches.append(conflict)
-                            log_mismatch(conflict)
-                            print(f"[CONFLICT, not written] {conflict}",
-                                  flush=True)
+            futs = {ex.submit(run_chunk, p): p for p in payloads}
+            while futs:
+                done, _ = wait(futs, return_when=FIRST_COMPLETED)
+                for fut in done:
+                    p = futs.pop(fut)
+                    n, chunk = p[0], p[1]
+                    try:
+                        _, results, errors, seconds, unfinished, timed_out = fut.result()
+                    except Exception as e:
+                        n_failed[0] += 1
+                        if n_failed[0] == 1:
+                            print("\n" + "!" * 60)
+                            print(f"FIRST FAILURE -- degree {n} chunk "
+                                  f"{chunk[0]}..{chunk[-1]}:\n{e}")
+                            print("!" * 60 + "\n", flush=True)
                         else:
-                            filled = (args.retry_unresolved
-                                      and old_cells[2] == NULL
-                                      and vals[2] != NULL)
-                            for off, v in zip(target_offsets, vals):
-                                row[off] = v
-                            if filled:
-                                tally["filled"] += 1
-                                if not args.quiet:
-                                    print(f"[fill] {row[0]}: "
-                                          f"{cfg['cols'][2]}={vals[2]}, "
-                                          f"{cfg['cols'][3]}={vals[3]}",
-                                          flush=True)
+                            print(f"[ERR ] degree {n} chunk {chunk[0]}..{chunk[-1]}: "
+                                  f"{type(e).__name__} (left as \\N, will retry)",
+                                  flush=True)
+                        done_chunks[n] += 1
+                        continue
 
-                done_chunks[n] += 1
-                n_done[0] += 1
-                if not args.verify:
-                    if (done_chunks[n] % args.flush_every == 0
-                            or done_chunks[n] == expected[n]):
-                        write_data(st["path"], st["header"], st["types"],
-                                   st["rows"])
+                    # Unfinished groups of a multi-group chunk are re-queued
+                    # one per chunk, so whichever one is slow times out alone.
+                    if unfinished and len(chunk) > 1:
+                        for i in unfinished:
+                            q = (n, [i]) + tuple(p[2:])
+                            futs[ex.submit(run_chunk, q)] = q
+                        expected[n] += len(unfinished)
+                        print(f"[requ] degree {n}: {len(unfinished)} unfinished "
+                              f"group(s) of chunk {chunk[0]}..{chunk[-1]} re-queued "
+                              f"individually", flush=True)
+                    elif unfinished:
+                        why = "timed out" if timed_out else "no output"
+                        n_failed[0] += 1      # never checked: --verify must not pass
+                        for i in unfinished:
+                            print(f"[TIME] {n}T{i}: {why} (left as \\N)", flush=True)
+                            log_line(args.error_log, f"{n}T{i}\t{args.ordering}\t{why}")
 
-                if args.quiet:
-                    if (args.progress_every
-                            and n_done[0] % args.progress_every == 0):
-                        note = (f", {tally['mismatch']} mismatches"
-                                if args.verify else "")
-                        print(f"[....] {n_done[0]}/{len(tasks)} chunks"
-                              f"{note}", flush=True)
-                else:
-                    print(f"[ok  ] degree {n}: chunk {chunk[0]}..{chunk[-1]} "
-                          f"({done_chunks[n]}/{expected[n]} chunks)")
+                    for i, msg in errors.items():
+                        print(f"[MERR] {n}T{i}: {msg}", flush=True)
+                        log_line(args.error_log, f"{n}T{i}\t{args.ordering}\tERROR\t{msg}")
+
+                    if args.timing_log:
+                        for i, secs in seconds.items():
+                            log_line(args.timing_log, f"{n}T{i}\t{args.ordering}\t{secs:g}")
+
+                    st = state[n]
+                    for i, (bM, bT, lo, up) in results.items():
+                        vals = b_values(bM, bT, lo, up)
+                        row = st["idx_to_row"][i]
+
+                        if args.verify:
+                            old = [row[off] for off in target_offsets]
+                            verdict, detail = compare_row(row[0], old, vals,
+                                                          cfg["cols"])
+                            tally[verdict] += 1
+                            if verdict == "mismatch":
+                                mismatches.append(detail)
+                                log_mismatch(detail)
+                                print(f"[MISMATCH] {detail}", flush=True)
+                        else:
+                            old_cells = [row[off] for off in target_offsets]
+                            conflict = None
+                            if args.retry_unresolved and not args.force_overwrite:
+                                verdict, detail = compare_row(row[0], old_cells,
+                                                              vals, cfg["cols"])
+                                if verdict == "mismatch":
+                                    conflict = detail
+                            if conflict is not None:
+                                # A retry pass is meant to fill blanks. Anything
+                                # else is a change of value, which belongs in a
+                                # --verify pass with a human reading the output.
+                                tally["conflict"] += 1
+                                mismatches.append(conflict)
+                                log_mismatch(conflict)
+                                print(f"[CONFLICT, not written] {conflict}",
+                                      flush=True)
+                            else:
+                                filled = (args.retry_unresolved
+                                          and old_cells[2] == NULL
+                                          and vals[2] != NULL)
+                                for off, v in zip(target_offsets, vals):
+                                    row[off] = v
+                                if filled:
+                                    tally["filled"] += 1
+                                    if not args.quiet:
+                                        print(f"[fill] {row[0]}: "
+                                              f"{cfg['cols'][2]}={vals[2]}, "
+                                              f"{cfg['cols'][3]}={vals[3]}",
+                                              flush=True)
+
+                    done_chunks[n] += 1
+                    n_done[0] += 1
+                    if not args.verify and results:
+                        if (done_chunks[n] % args.flush_every == 0
+                                or done_chunks[n] == expected[n]):
+                            write_data(st["path"], st["header"], st["types"],
+                                       st["rows"])
+
+                    if args.quiet:
+                        if (args.progress_every
+                                and n_done[0] % args.progress_every == 0):
+                            note = (f", {tally['mismatch']} mismatches"
+                                    if args.verify else "")
+                            print(f"[....] {n_done[0]} chunks done, "
+                                  f"{len(futs)} pending{note}", flush=True)
+                    else:
+                        print(f"[ok  ] degree {n}: chunk {chunk[0]}..{chunk[-1]} "
+                              f"({done_chunks[n]}/{expected[n]} chunks)")
     finally:
         if mlog[0] is not None:
             mlog[0].close()

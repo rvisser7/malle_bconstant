@@ -61,8 +61,10 @@ CertificateChain := [*
 // ebp1 is handed back so callers do not repeat the reduction for their
 // diagnostics: the certifying leaf on success, the smallest-kernel leaf on
 // failure.
-CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy)
-    leaves, fullySplit := SplitReductionLeaves(ebp);
+//
+// Raw: optional precomputed SplitTowerRaw for this pi (see split_tower.m).
+CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false)
+    leaves, fullySplit := SplitReductionLeaves(ebp : Raw := Raw);
     if fullySplit then
         return true, "nilpotent split tower to trivial kernel", leaves[1];
     end if;

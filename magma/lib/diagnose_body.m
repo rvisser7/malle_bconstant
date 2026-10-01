@@ -24,7 +24,8 @@
 // values and status codes that may have to be withdrawn to \N.
 //
 // Also reports, per group:
-//   undet     pairs admitted to the upper bound on an undetermined verdict
+//   undet     1 if the pair that fixed the upper bound was admitted on an
+//             UNDETERMINED verdict, else 0 (Phase 2 now stops at that pair)
 //   central   pairs that could have raised the lower bound, whose residual
 //             is central, and which did not certify.  These are the ones a
 //             complete local decision at every place would close.  The

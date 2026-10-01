@@ -2,23 +2,38 @@
 // Splitting conditions
 // =====================================================================
 //
-// Extracted verbatim from compute_all_fast.m. The code below is unchanged
-// byte-for-byte, so the split cannot alter any computed value.
-//
 // Requires (load first): records.m
 
-// OPTIMISED: was computing the ENTIRE subgroup lattice of G and then throwing
-// away everything of the wrong order.  OrderEqual pushes that filter into
-// Magma's search.  Testing one representative per conjugacy class is still
-// sound because K is normal in every call site (N1 and Nbar are both normal),
-// so #(H^g meet K) = #(H meet K).
+// Does the normal subgroup K have a complement in G?  Returns the answer
+// and, if yes, one complement.
+//
+// First choice: Complements(G, K), which works by cohomology when K (or
+// G/K) is soluble -- always true in the split tower, where K is nilpotent,
+// and in the certificates, where G/K is abelian.  If Magma declines (e.g.
+// both K and G/K insoluble) we fall back to the old exhaustive search:
+// conjugacy classes of subgroups of order #G/#K, one of which meets K
+// trivially iff K is complemented.  Testing one representative per class is
+// sound because K is normal, so #(H^g meet K) = #(H meet K).
 IsSplitKernel := function(G, K)
+    if #K eq 1 then return true, G; end if;
+    if #K eq #G then return true, sub< G | Id(G) >; end if;
+
+    decided := false;
+    ok := false;
+    H := sub< G | Id(G) >;
+    try
+        comps := Complements(G, K);
+        decided := true;
+        if #comps gt 0 then ok := true; H := comps[1]; end if;
+    catch err
+        decided := false;
+    end try;
+    if decided then return ok, H; end if;
+
     targetOrder := #G div #K;
-    SG := Subgroups(G : OrderEqual := targetOrder);
-    for R in SG do
+    for R in Subgroups(G : OrderEqual := targetOrder) do
         H := R`subgroup;
-        if #(H meet K) ne 1 then continue; end if;
-        return true, H;
+        if #(H meet K) eq 1 then return true, H; end if;
     end for;
     return false, sub< G | Id(G) >;
 end function;

@@ -35,6 +35,17 @@
 // B-EQUIVARIANT realisation and Shafarevich does not supply that.  That gap
 // is real; do not paper over it by testing IsSolvable at the top.
 //
+// FIXED: shape (3) used to call KnownRegularOverQ(T), which accepts ANY
+// solvable T, contradicting the paragraph above.  For T wr C2 one needs a
+// T-extension L/F (F = Q(phi) quadratic) with L and its conjugate L^sigma
+// linearly disjoint over F.  For ABELIAN T that is class field theory (ramify
+// at a prime of F split over Q but not at its conjugate; this is the
+// situation of Wang's Lemma 3.8).  For T regular over Q(t) it is Hilbert
+// irreducibility over F.  For general solvable T it may well be true, via
+// Shafarevich with local conditions, but nothing here cites it, so shape (3)
+// now accepts only those two cases.  This can only LOWER a certified lower
+// bound, never produce a false one; diagnose before republishing.
+//
 // TWO ENTRIES NEED CONFIRMATION BEFORE PUBLICATION, both in shape (2):
 //   * the GAR table is cited, not verified here;
 //   * the usual GAR statement in [MM99] carries a centraliser hypothesis on
@@ -46,6 +57,9 @@
 // problem with this kernel.  A_n and S_n have GAR for all n >= 5; the bound
 // of 9 is only to keep the isomorphism tests cheap.  Widen freely.
 // ---------------------------------------------------------------------
+//
+// A6 in particular deserves a look before publication: Out(A6) = C2^2 is
+// exceptional, and GAR is a statement about realising Aut(K).
 HasGAROverQ := function(K)
     for m in [5..9] do
         if #K eq Factorial(m) div 2 and IsIsomorphic(K, Alt(m)) then
@@ -58,14 +72,11 @@ HasGAROverQ := function(K)
     return false, "";
 end function;
 
-// Weaker: realisable over Q with infinitely many linearly disjoint
-// realisations.  Enough for the DIRECT PRODUCT branch only.  The entries
-// that are regular over Q(t) are also regular over any number field, which
-// is what shape (3) needs when it applies this over F = Q(phi).
-KnownRegularOverQ := function(K)
-    if IsSolvable(K) then
-        return true, "solvable (Shafarevich)";
-    end if;
+// Groups regular over Q(t) (Galois group of a regular extension of Q(t)),
+// hence over F(t) for every number field F, with infinitely many linearly
+// disjoint specialisations by Hilbert irreducibility.  Non-solvable entries
+// only; solvable groups are handled separately below.
+KnownRegularTableOverQ := function(K)
     gar, why := HasGAROverQ(K);
     if gar then return true, why; end if;
     for m in [5..9] do
@@ -86,6 +97,26 @@ KnownRegularOverQ := function(K)
         end try;
     end if;
     return false, "";
+end function;
+
+// Realisable over Q with infinitely many linearly disjoint realisations.
+// Enough for the DIRECT PRODUCT branch only.
+KnownRegularOverQ := function(K)
+    if IsSolvable(K) then
+        return true, "solvable (Shafarevich)";
+    end if;
+    ok, why := KnownRegularTableOverQ(K);
+    return ok, why;
+end function;
+
+// What shape (3), T wr C2, accepts: abelian T (class field theory) or T in
+// the regular table.  NOT general solvable T; see the header.
+KnownForWreathOverQuadratic := function(T)
+    if IsAbelian(T) then
+        return true, "abelian (class field theory over F)";
+    end if;
+    ok, why := KnownRegularTableOverQ(T);
+    return ok, why;
 end function;
 
 // A complement to K in G_r that is normal, i.e. G_r = K x H.
@@ -164,7 +195,7 @@ StructuralResidualIsProperlySolvable := function(ebp1)
 
     isWr, T := IsWreathResidual(Gr, K, pi);
     if isWr then
-        good, why := KnownRegularOverQ(T);
+        good, why := KnownForWreathOverQuadratic(T);
         if good then
             return true, "wreath T wr C2, T " cat why;
         end if;

@@ -28,6 +28,7 @@ load "lib/certificates/central.m";
 load "lib/certificates/q8.m";
 load "lib/certify.m";
 load "lib/embedding_problems.m";
+load "lib/class_orbits.m";
 load "lib/disc/orbits.m";
 
 DumpGroup := procedure(n, i)

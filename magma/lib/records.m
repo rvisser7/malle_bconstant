@@ -16,12 +16,11 @@ FullCheckCandidateFormat := recformat<
 
 // Diagnostic fields added alongside the four published quantities:
 //
-//   undetermined_local        pairs admitted to the upper bound on an
-//                             UNDETERMINED local verdict rather than an
-//                             exhibited lift.  These are exactly the cells
-//                             where the legacy (unsound) policy would have
-//                             vetoed; if this is 0 for a group, the policy
-//                             correction cannot have moved its numbers.
+//   undetermined_local        1 if the pair that fixed the upper bound was
+//                             admitted on an UNDETERMINED local verdict
+//                             rather than an exhibited lift, else 0.  If 0,
+//                             the policy correction cannot have moved the
+//                             upper bound for this group.
 //   central_residual_stalled  pairs whose residual is central -- so
 //                             certificates/central.m is in principle a
 //                             decision procedure -- but whose local verdict

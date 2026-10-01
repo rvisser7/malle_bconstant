@@ -201,7 +201,9 @@ end function;
 
 // Only the No direction is inherited, so a Yes or Unknown on a quotient
 // says nothing and is discarded.
-LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60)
+// Raw: optional precomputed SplitTowerRaw for this pi (see split_tower.m),
+// so the tower is not rebuilt for every phi.
+LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60, Raw := false)
     v, reports := LocalVerdict(ebp, policy);
     if v ne LocalVerdictUnknown then
         return v, "direct", reports;
@@ -214,7 +216,7 @@ LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60)
     // anyway.  Free, and it is what settles 20T297.  Every leaf is a
     // quotient of the original, so an obstruction on any one of them is
     // inherited -- there is no reason to look at only one.
-    leaves := SplitReductionLeaves(ebp);
+    leaves := SplitReductionLeaves(ebp : Raw := Raw);
     for k := 1 to #leaves do
         K1 := Kernel(leaves[k]`pi);
         if #K1 lt #N and #K1 gt 1 then
@@ -250,8 +252,8 @@ end function;
 // Consumer 1: may this pair still contribute to the b_W upper bound?
 // Uses the quotient inference, since an obstruction on any quotient is an
 // obstruction on the pair.
-LocalTestsAllowPair := function(ebp, policy)
-    v, why := LocalVerdictWithQuotients(ebp, policy);
+LocalTestsAllowPair := function(ebp, policy : Raw := false)
+    v, why := LocalVerdictWithQuotients(ebp, policy : Raw := Raw);
     return v ne LocalVerdictNo, v, why;
 end function;
 

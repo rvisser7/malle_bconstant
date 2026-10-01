@@ -28,20 +28,17 @@ magma/
     │   ├── central.m                central kernels over Q, decided locally
     │   └── q8.m                     Witt's criterion for residual Q8 problems
     ├── certify.m                CertifyAdmissible: the certificate chain
-    ├── embedding_problems.m     Gpiphi
+    ├── embedding_problems.m     Gpiphi (pruned), GpiphiReference
+    ├── class_orbits.m           b(pi,phi) on classes of Ker(pi), both orderings
     ├── bw_phase2.m              the b_W bracket, shared by both orderings
     ├── disc/
-    │   ├── orbits.m             ind(g), MinIndex, bpiphi for disc
+    │   ├── orbits.m             ind(g), MinIndexClasses; keep ind = a
     │   └── fullcheck.m          FullCheck Phase 1 for disc
     ├── prp/
-    │   ├── orbits.m             bpiphi over conjugacy classes, for prp
+    │   ├── orbits.m             keep every non-identity class
     │   └── fullcheck.m          FullCheck Phase 1 for prp
     └── driver.m                 machine-readable CLI driver
 ```
-
-`lib/known_residuals.m` and `lib/q8_certificate.m` are the pre-refactor versions
-of `certificates/structural.m` and `certificates/q8.m`. Nothing loads them any
-more; `git rm` them once you are happy, the history keeps them either way.
 
 ## How it works
 
@@ -58,21 +55,37 @@ expensive thing in Phase 1 depends on `pi` alone -- `Kernel(pi)`, then
 `Classes(N)` and `ClassMap(N)` for prp or `Smin meet N` for disc -- so it is built
 once per `pi` in a `KernelCtx` and shared by every `phi` over it.
 
-For prp the context goes further and caches the twisted action itself as
-permutations of the class indices: powering by `a = f(c)` depends only on the
-generator of `C`, conjugation depends only on `phi(c)` in `B` and composes over
-generators of `B`, so a pi group costs `(Ngens(B) + Ngens(C)) * #classes`
-ClassMap evaluations in total and each pair after that is array lookups. The
-previous cost was one ClassMap evaluation per class, per generator of `C`, per
-pair, which is what made groups like 24T24040 take tens of hours. The disc
-ordering still runs its BFS over elements and has not had the same treatment. `bpiphi` is kept
-as a reference implementation that rebuilds everything, and
-`tests/test_orbits_agree_*.m` asserts the two agree pair by pair. Use
-`bench_disc.m` / `bench_prp.m` to see which phase a slow group is actually slow
-in before optimising further. Phase 2 (the bracket) is
+Both orderings now count orbits on conjugacy classes of `N = Ker(pi)`, with
+the machinery in `class_orbits.m`; they differ only in which classes are kept
+(`ind = a` for disc, every non-identity class for prp). The twisted action is
+cached as permutations of the kept class indices: powering by `a = f(c)`
+depends only on the generator of `C`, conjugation depends only on `phi(c)` in
+`B` and composes over generators of `B`, so a pi group costs
+`(Ngens(B) + Ngens(C)) * #kept classes` ClassMap evaluations in total and each
+pair after that is array lookups. `MinIndexClasses` gets `a`, `d` and `#Smin`
+from the classes of `G`, so nothing element-sized is ever built.
+
+`Gpiphi` enumerates subgroups of `AbG / e*AbG` (with `e = Exp(C)`) of index
+dividing `#C`, since only those quotients admit a surjection from `C`, and in
+the disc ordering skips every `pi` whose kernel misses the minimal classes
+before forming `Kernel(pi)`. `GpiphiReference` is the old enumeration.
+
+The element-based `bpiphi`/`MinIndex` and `GpiphiReference` are kept as
+reference implementations; `tests/test_orbits_agree_*.m` and
+`tests/test_gpiphi_pruning.m` assert agreement pair by pair or value by value.
+Use `bench_disc.m` / `bench_prp.m` to see which phase a slow group is actually
+slow in before optimising further. Phase 2 (the bracket) is
 identical and lives once, in `bw_phase2.m`.
 
 ## The two bounds
+
+**Order of work.** Phase 2 sorts the pairs by decreasing `b`. The first pair
+not proven locally obstructed fixes the upper bound; a pair proven obstructed is
+never sent to the certificates (sound policy); the first certified pair fixes
+the lower bound and stops the loop. The split tower depends on `pi` only, so it
+is built once per `pi` (`SplitTowerRaw`) and passed to the certificates and the
+local-quotient scan through their `Raw` parameter. Inside the tower, states are
+cumulative kernels in the original group and each is expanded once.
 
 **Lower.** `BWlowerSplit` is the largest `b(pi, phi)` over pairs *proven properly
 solvable*. `split_tower.m` returns every dead end of the nilpotent split tower,
@@ -123,14 +136,19 @@ and which prime caused it.
    to a certificate, since for `B = 1` proper solvability is the inverse Galois
    problem for `G` over Q. Every number here is conditional on `G` being
    realisable, which Malle's conjecture assumes anyway.
-2. **Split tower properness.** `split_tower.m` needs "solvable, with nilpotent
-   kernel, implies properly solvable over a global field". The exact citation is
-   still open: see the marked block in that file. If the version that holds
-   carries Wang's coprimality hypothesis `(|mu(k)|, |Ker pi|) = 1`, every
-   even-order layer is uncertified.
+2. **Split tower properness.** `split_tower.m` only lifts a *proper* solution
+   through a *split* layer with nilpotent kernel, so what it needs is "a split
+   embedding problem with nilpotent kernel over a number field is properly
+   solvable" -- the inductive step of Shafarevich's theorem (NSW08 Ch. IX
+   Sec. 6), and Ikeda's theorem for abelian layers. Wang's coprimality
+   hypothesis belongs to her non-split Theorems 4.1/4.2. The exact NSW theorem
+   number still needs quoting; see the marked block in that file.
 3. **Exact intersection.** Conjecture 6 counts liftings with
    `K(phi~) cap Q(mu_d) = F` exactly. The certificates produce *some* proper
    lift; none of them checks the intersection. This follows Conjecture 7 as
    literally stated, and is a gap in the conjecture rather than in the code.
 4. **GAR table.** `structural.m` shape (2) is cited, not verified, and imposes
-   no centraliser condition on `G_r`.
+   no centraliser condition on `G_r`. Check A6 in particular.
+5. **Wreath shape.** `structural.m` shape (3) accepts `T` abelian (class field
+   theory) or `T` regular over Q(t); it no longer accepts arbitrary solvable `T`,
+   which had no citation.

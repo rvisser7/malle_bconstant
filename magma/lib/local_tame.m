@@ -2,9 +2,6 @@
 // Local checking (tame finite places and the real place)
 // =====================================================================
 //
-// Extracted verbatim from compute_all_fast.m. The code below is unchanged
-// byte-for-byte, so the split cannot alter any computed value.
-//
 // Requires (load first): records.m
 
 UnitInteger := function(c, f)
@@ -22,93 +19,61 @@ HasPreimage := function(pi, b)
     return false, Id(Domain(pi));
 end function;
 
-// How large Kernel(pi) has to get before the conjugacy machinery below is
-// worth its overhead.  Both branches decide exactly the same predicate, so
-// this only trades one cost model for another.
+// b1 - b2 in B, whether B is written additively (GrpAb, as Gpiphi builds
+// it) or multiplicatively (a quotient permutation group, as some tests and
+// diagnostics build it).
+BDiff := function(b1, b2)
+    if Type(b1) eq GrpAbElt then return b1 - b2; end if;
+    return b1 * b2^(-1);
+end function;
+
+// Is there X, Y in G with pi(X) = bX, pi(Y) = bY and X*Y*X^-1 = Y^p ?
 //
-// TO TEST THE FAST BRANCH: set this to 0, which forces every call down it,
-// and run run_parallel.py --verify.  Left at 64, a verify pass over the small
-// degrees may never execute it at all.
-TameLiftDirectLimit := 64;
-
+// WORKS ON CLASSES OF G, NOT ON ELEMENTS OF N.  B is abelian, so pi is
+// constant on conjugacy classes, and if (X, Y) is a solution then so is
+// (h X h^-1, h Y h^-1) for every h, with the same images in B.  So Y may be
+// taken to be a class representative.  For a fixed Y the solutions X form
+// the coset w*C_G(Y) of any one w with w Y w^-1 = Y^p:
+//
+//     X Y X^-1 = w Y w^-1  <=>  w^-1 X in C_G(Y),
+//
+// and pi(w*c) = bX for some c in C_G(Y) iff bX - pi(w) lies in pi(C_G(Y)).
+// That last test is inside B.  Cost: one ClassMap per class with
+// pi(rep) = bY, and IsConjugate + Centraliser only for the classes that are
+// stable under p-th powering.  The old version enumerated all of N, and
+// for each Y in a coset of N ran IsConjugate and Centraliser.
+//
+// p-th powering: X Y X^-1 = Y^p forces ord(Y^p) = ord(Y), i.e. p does not
+// divide ord(Y), so the lift genuinely factors through the tame quotient.
 IsLocalLiftableTameByBImages := function(ebp, p, bX, bY)
-    G  := ebp`G; pi := ebp`pi; N  := Kernel(pi);
+    G := ebp`G; pi := ebp`pi; B := Codomain(pi);
 
-    okX, X0 := HasPreimage(pi, bX);
-    if not okX then return false, "No lift of Frobenius image", <Id(G), Id(G)>; end if;
-
-    okY, Y0 := HasPreimage(pi, bY);
-    if not okY then return false, "No lift of inertia image", <Id(G), Id(G)>; end if;
-
-    // We need X in X0*N and Y in Y0*N with X*Y*X^-1 = Y^p.
-    Nseq := [ n : n in N ];
-    Ys   := [ Y0*n : n in Nseq ];
-    Yps  := [ Y^p : Y in Ys ];
-
-    // ---- small kernels: the direct search, unchanged -------------------
-    if #Nseq le TameLiftDirectLimit then
-        for nX in Nseq do
-            X  := X0*nX;
-            Xi := X^(-1);
-            for k := 1 to #Ys do
-                if X*Ys[k]*Xi eq Yps[k] then
-                    return true, "Liftable", <X, Ys[k]>;
-                end if;
-            end for;
-        end for;
-        return false, "No pair of lifts satisfies tame relation", <Id(G), Id(G)>;
+    if not (bX in Image(pi)) then
+        return false, "No lift of Frobenius image", <Id(G), Id(G)>;
+    end if;
+    if not (bY in Image(pi)) then
+        return false, "No lift of inertia image", <Id(G), Id(G)>;
     end if;
 
-    // ---- large kernels: |N| coset tests instead of |N|^2 pairs ---------
-    //
-    // Fix Y.  The set S = { g in G : g*Y*g^-1 = Y^p } is empty when Y^p is not
-    // conjugate to Y, and is otherwise the coset w*C_G(Y) for any single w with
-    // w*Y*w^-1 = Y^p:
-    //
-    //     g*Y*g^-1 = w*Y*w^-1  <=>  (w^-1*g) centralises Y  <=>  g in w*C_G(Y).
-    //
-    // So "does some X in X0*N work for this Y?" becomes "does w*C_G(Y) meet
-    // X0*N?", and since N is normal in G the product N*C_G(Y) is a subgroup:
-    //
-    //     (w*C) meet (X0*N) non-empty
-    //       <=> exists c in C, n in N with w*c = X0*n
-    //       <=> exists c in C with X0^-1*w*c in N
-    //       <=> X0^-1*w in N*C^-1 = N*C = <N, C>.
-    //
-    // One membership test per Y, in place of a scan over all of X0*N.
-    X0i   := X0^(-1);
-    Ngens := Generators(N);
+    cls := Classes(G);
+    cm  := ClassMap(G);
+    for i := 1 to #cls do
+        Y := cls[i][3];
+        if pi(Y) ne bY then continue; end if;
+        if cm(Y^p) ne i then continue; end if;      // Y^p not conjugate to Y
 
-    for k := 1 to #Ys do
-        Y := Ys[k];
-
-        // Magma's IsConjugate returns t with Y^t = t^-1*Y*t, so invert it to
-        // get the left-conjugation convention used above.
-        okc, t := IsConjugate(G, Y, Yps[k]);
-        if not okc then continue; end if;
-        w := t^(-1);
+        okc, t := IsConjugate(G, Y, Y^p);           // Y^t = t^-1 Y t = Y^p
+        assert okc;
+        w := t^(-1);                                // w Y w^-1 = Y^p
 
         CY := Centraliser(G, Y);
-        NC := sub< G | Ngens join Generators(CY) >;
-
-        if not (X0i*w in NC) then continue; end if;
-
-        // A solution exists.  Recover an explicit X in (X0*N) meet (w*C_G(Y)):
-        // one pass over N, and only on the branch that already succeeded, so it
-        // does not affect the asymptotics.
-        wi := w^(-1);
-        for n in Nseq do
-            X := X0*n;
-            if wi*X in CY then
-                return true, "Liftable", <X, Y>;
-            end if;
-        end for;
-
-        // Unreachable: the membership test above proves the intersection is
-        // non-empty, so the loop must have found X.  Fail loudly rather than
-        // silently reporting "not liftable" if that reasoning is ever wrong.
-        error "IsLocalLiftableTameByBImages: coset intersection was certified " *
-              "non-empty but no witness was found -- this is a bug";
+        rho := hom< CY -> B | [ pi(CY.k) : k in [1..Ngens(CY)] ] >;
+        target := BDiff(bX, pi(w));
+        if target in Image(rho) then
+            X := w * (target @@ rho);
+            assert X*Y*X^(-1) eq Y^p and pi(X) eq bX and pi(Y) eq bY;
+            return true, "Liftable", <X, Y>;
+        end if;
     end for;
 
     return false, "No pair of lifts satisfies tame relation", <Id(G), Id(G)>;
@@ -215,13 +180,15 @@ IsCyclotomicTameLocallyLiftableAtPrime := function(ebp, p)
     if #Hwild gt 1 then return false, "Wild inertia image is nontrivial", <Id(G), Id(G)>; end if;
     if not IsCyclic(Htame) then return false, "Tame inertia image is not cyclic", <Id(G), Id(G)>; end if;
 
-    gensHtame := [ h : h in Htame | Order(h) eq #Htame ];
-    for h in gensHtame do
-        bY := B!h;
-        ok, msg, wit := IsLocalLiftableTameByBImages(ebp, p, bX, bY);
-        if ok then return true, "Liftable for some tame inertia generator", wit; end if;
-    end for;
-    return false, "No generator of tame inertia image is locally liftable", <Id(G), Id(G)>;
+    // ONE generator suffices.  The tame relation holds for every topological
+    // generator y of tame inertia, and if (X, Y) solves the problem for
+    // bY = h then (X, Y^u) solves it for h^u, since X Y^u X^-1 = (Y^p)^u.
+    // So all generators of Htame give the same answer; the old loop over all
+    // of them repeated identical work on every failure.
+    h := Rep({ h : h in Htame | Order(h) eq #Htame });
+    ok, msg, wit := IsLocalLiftableTameByBImages(ebp, p, bX, B!h);
+    if ok then return true, "Liftable (tame)", wit; end if;
+    return false, "No tame lift for the tame inertia generator", <Id(G), Id(G)>;
 end function;
 
 IsLocallyLiftableAtAllTameFinitePlaces := function(ebp)
@@ -250,19 +217,12 @@ IsRealLocallyLiftable := function(ebp)
     if not found then return true, "No -1 element found", Id(G); end if;
     b := phi(cminus);
 
-    // OPTIMISED: { g : pi(g) eq b } is exactly the coset g0*Kernel(pi), so scan
-    // that instead of all of G.  Same set of candidates, |N| of them instead of
-    // |G|.  (A different witness element may be returned; no caller uses it --
-    // PassesCheckedLocalTests keeps only the boolean.)
-    if not (b in Image(pi)) then
-        return false, "Real place not liftable", Id(G);
-    end if;
-    g0 := b @@ pi;
-    N  := Kernel(pi);
-    for n in N do
-        g := g0*n;
-        if g^2 eq Id(G) then
-            return true, "Real place liftable", g;
+    // Need g with pi(g) = b and g^2 = 1.  pi is constant on classes (B is
+    // abelian), so it is enough to look at representatives of the classes of
+    // elements of order 1 or 2.  The old version scanned the whole coset of N.
+    for cl in Classes(G) do
+        if cl[1] le 2 and pi(cl[3]) eq b then
+            return true, "Real place liftable", cl[3];
         end if;
     end for;
     return false, "Real place not liftable", Id(G);

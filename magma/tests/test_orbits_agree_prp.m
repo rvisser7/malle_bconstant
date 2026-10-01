@@ -21,6 +21,7 @@
 
 load "lib/records.m";
 load "lib/embedding_problems.m";
+load "lib/class_orbits.m";
 load "lib/prp/orbits.m";
 
 CASES := [

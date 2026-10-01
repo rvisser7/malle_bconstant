@@ -2,7 +2,8 @@
 // FullCheck -- PRODUCT OF RAMIFIED PRIMES ordering
 // =====================================================================
 //
-// Requires (load first): records.m, embedding_problems.m, prp/orbits.m,
+// Requires (load first): records.m, embedding_problems.m, class_orbits.m,
+//                        prp/orbits.m,
 //                        bw_phase2.m
 //
 // Differences from the disc version, all in Phase 1:
@@ -11,7 +12,8 @@
 //     so the skip test is "#N eq 1"
 //   * d := Exponent(G), which is what lcm{ord(g) : exp(g) = exp(G)} becomes
 //     when every non-identity g is minimal
-//   * bpiphi takes one argument and works on conjugacy classes of N
+//   * the class context keeps every non-identity class of N
+//     (lib/class_orbits.m, shared with disc)
 // Phase 2 is shared, in lib/bw_phase2.m.
 
 // Phase 1, exposed so that the verdict reporter enumerates exactly the same
@@ -33,12 +35,12 @@ EvaluatePairs := function(G)
     // per group of pairs instead of once per phi.
     for grp in groups do
         ctx := MakeKernelCtx(T[grp[1]]);
-        if #ctx`N eq 1 then continue; end if;
+        if ctx`nkept eq 0 then continue; end if;
 
         for j in grp do
             ebp := T[j];
 
-            numberSminInKer, bval := bpiphiCtx(ebp, ctx);
+            _, bval := bpiphiCtx(ebp, ctx);
             bval_int := Integers()!bval;
 
             if bval_int gt bT then bT := bval_int; end if;
