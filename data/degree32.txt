@@ -11441,9 +11441,9 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 32T2801193|3|3|3|0|\N|\N|\N|\N
 32T2801194|3|3|3|0|\N|\N|\N|\N
 32T2801195|3|3|3|0|\N|\N|\N|\N
-32T2801196|\N|\N|\N|\N|\N|\N|\N|\N
-32T2801197|\N|\N|\N|\N|\N|\N|\N|\N
-32T2801198|\N|\N|\N|\N|\N|\N|\N|\N
+32T2801196|4|4|4|0|\N|\N|\N|\N
+32T2801197|4|4|4|0|\N|\N|\N|\N
+32T2801198|2|2|2|0|\N|\N|\N|\N
 32T2801199|\N|\N|\N|\N|\N|\N|\N|\N
 32T2801200|\N|\N|\N|\N|\N|\N|\N|\N
 32T2801201|\N|\N|\N|\N|\N|\N|\N|\N
