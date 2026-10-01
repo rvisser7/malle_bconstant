@@ -21,37 +21,43 @@
 // PROPERNESS.  s . psi is not surjective onto G (its image is the
 // complement), so the above certifies solvable, not properly solvable, and
 // Conjecture 6 counts surjective liftings.  The repair is to climb back up
-// the tower, and note what each step actually needs: we hold a PROPER
-// solution of G/M and ask for a proper solution of G, through the layer
+// the tower: we hold a PROPER solution psi : G_Q ->> G/M of the reduced
+// problem, cutting out some field K with Gal(K/Q) = G/M, and ask for a
+// proper solution of the layer
 //
-//     1 -> M -> G -> G/M -> 1,    SPLIT, with M nilpotent.
+//     1 -> M -> G -> G/M -> 1,    lifting psi.
 //
-// So what is used is only
+// The layer is SPLIT, hence solvable (by s . psi), for every psi.  What we
+// do NOT control is K: it is whatever field the rest of the tower produced.
+// So a layer may be peeled off only under hypotheses that hold for every
+// such K.  Two are used (see LayerAllowed below):
 //
-//     (*)  over a number field, a finite SPLIT embedding problem with
-//          NILPOTENT kernel is properly solvable,
+//   (1) M NILPOTENT.  [NSW08, Thm (9.6.10)]: for K|k finite Galois and
+//       phi : G_k ->> G(K|k) the natural projection, every embedding problem
+//       with finite nilpotent kernel that has a solution can be solved
+//       properly.  No further hypothesis -- in particular none on K.
 //
-// not the much stronger "solvable with nilpotent kernel => properly
-// solvable".  (*) is the inductive step in the proof of Shafarevich's
-// theorem; see [NSW08, Ch. IX, Sec. 6] (the corrected treatment, which
-// handles the prime 2).  For ABELIAN M it is Ikeda's theorem: over a
-// Hilbertian field every finite split embedding problem with abelian kernel
-// is properly solvable [Fried-Jarden, Field Arithmetic, Ch. 16].
+//   (2) #M ODD, and exp(M) prime to #mu(K).  [NSW08, Cor (9.5.8)(ii)(c)]:
+//       with Gamma = G(K|k) finite and H separable, prosolvable, of finite
+//       exponent prime to #mu(K), a SPLIT extension has a proper solution.
+//       M of odd order is solvable (Feit-Thompson).  The condition is on the
+//       roots of unity of the TOP field K, not of Q, and K is unknown, so we
+//       require for every prime p | #M that mu_p cannot lie in K: if it did,
+//       Q(mu_p) would lie in K and C_{p-1} would be a quotient of G/M, and a
+//       finite abelian group has a C_n quotient iff n divides its exponent.
+//       So: p - 1 must not divide Exponent((G/M)^ab).  (p = 2 is excluded by
+//       oddness, since mu_2 = {+-1} lies in every K.)  This is restrictive --
+//       p = 3 already forces (G/M)^ab to have odd exponent -- but sound.
 //
-// Wang's extra hypotheses -- kernel solvable and (|mu(k)|, |Ker pi|) = 1 --
-// appear in her Theorems 4.1/4.2, which are about NON-split problems, where
-// solvability comes from projectivity of Z^ and properness has to be argued
-// separately.  They are not needed here.
+// Note that Wang's Theorem 4.2 states the coprimality with mu(k).  That is
+// harmless in her setting (K inside the cyclotomic Z^-extension; over Q
+// totally real, so mu(K) = mu(Q) = {+-1}) but it is NOT the hypothesis of
+// (9.5.8) in general, and it would be wrong to use "#M odd" alone here.
 //
-//   >>> TODO before publishing: quote the exact theorem number from NSW08
-//   >>> Ch. IX Sec. 6 here (the old comment cited (9.6.10)), and check its
-//   >>> hypotheses are only "split, nilpotent kernel, char 0".
-//
-// The nilpotent hypothesis cannot simply be dropped.  With B trivial, the
-// split problem 1 -> G -> G -> 1 -> 1 is properly solvable exactly when G is
-// a Galois group over Q, so an unrestricted "split => properly solvable"
-// would be assuming the inverse Galois problem.  Nilpotent layers are safe
-// on that count: nilpotent groups are realisable over Q.
+// Some hypothesis on M cannot simply be dropped.  With B trivial, the split
+// problem 1 -> G -> G -> 1 -> 1 is properly solvable exactly when G is a
+// Galois group over Q, so an unrestricted "split => properly solvable" would
+// be assuming the inverse Galois problem.
 //
 // Nor may we simply take the LARGEST complemented M at each step: a bigger M
 // is worthless if a finer tower exists below it.  12T130 = C_3 wr C_2^2 is
@@ -60,14 +66,25 @@
 // tower there; whereas C_3^4 first, then C_2, reduces to the trivial kernel.
 // So: largest first, and backtrack.
 
-// Nilpotent normal M <= N, M != 1, admitting a complement in G, largest first.
-NilpotentComplementedCandidates := function(G, N)
+// May the complemented normal subgroup M of G be peeled off?  (1) or (2)
+// above.  Cheap tests first; the quotient is only formed for odd,
+// non-nilpotent M.
+LayerAllowed := function(G, M)
+    if IsNilpotent(M) then return true; end if;                // (9.6.10)
+    if IsEven(#M) then return false; end if;
+    e := Exponent(AbelianQuotient(quo< G | M >));              // (9.5.8)
+    return forall{ p : p in PrimeDivisors(#M) | e mod (p - 1) ne 0 };
+end function;
+
+// Normal M <= N, M != 1, allowed by LayerAllowed and admitting a complement
+// in G, largest first.
+AdmissibleComplementedCandidates := function(G, N)
     cands := [];
     for R in NormalSubgroups(G) do
         M := R`subgroup;
         if #M eq 1 or #M eq #G then continue; end if;
         if not (M subset N) then continue; end if;
-        if not IsNilpotent(M) then continue; end if;
+        if not LayerAllowed(G, M) then continue; end if;
         ok := IsSplitKernel(G, M);
         if ok then Append(~cands, M); end if;
     end for;
@@ -75,7 +92,10 @@ NilpotentComplementedCandidates := function(G, N)
     return cands;
 end function;
 
-// Depth-first search for towers of complemented nilpotent layers.
+// Old name, kept for the diagnostics (inspect_stalled.m, why_no_candidates.m).
+NilpotentComplementedCandidates := AdmissibleComplementedCandidates;
+
+// Depth-first search for towers of complemented admissible layers.
 //
 // STATE.  A node of the search is a normal subgroup K of the ORIGINAL group
 // G0 (the cumulative kernel quotiented out so far), and the problem at that
@@ -123,7 +143,7 @@ TowerLeavesFrom := function(G0, pi0, B, K, depth, cap, seen)
     if #N eq 1 then return true, [* <GK, piK> *], seen; end if;
     if depth le 0 then return false, [* <GK, piK> *], seen; end if;
 
-    cands := NilpotentComplementedCandidates(GK, N);
+    cands := AdmissibleComplementedCandidates(GK, N);
     if #cands eq 0 then return false, [* <GK, piK> *], seen; end if;
 
     leaves := [* *];

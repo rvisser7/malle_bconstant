@@ -7,7 +7,7 @@
 // Read-only diagnostic.  Touches nothing in the pipeline: it re-runs the
 // pair enumeration for each group, and for every pair whose bval exceeds
 // b_M but which CertifyAdmissible declines, prints the residual left over
-// after the nilpotent split-tower, plus the facts that decide which
+// after the split tower, plus the facts that decide which
 // certificate (if any) ought to apply to it.
 //
 // Columns of each UNCERT line:
@@ -95,7 +95,7 @@ InspectGroup := procedure(n, i)
         // What the tower had available AT the residual.  A non-empty list
         // here means the tower search stopped early -- a bug, not a missing
         // certificate.
-        cands := NilpotentComplementedCandidates(Gr, Kr);
+        cands := AdmissibleComplementedCandidates(Gr, Kr);
         printf "    b=%o  |B|=%o  UNCERT  G_r=%o (%o)  K_r=%o (%o)  "
              * "split=%o direct=%o Kr_solv=%o local=%o  cands=%o\n",
             v[1], #ebp`B,

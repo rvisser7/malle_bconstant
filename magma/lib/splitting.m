@@ -8,7 +8,8 @@
 // and, if yes, one complement.
 //
 // First choice: Complements(G, K), which works by cohomology when K (or
-// G/K) is soluble -- always true in the split tower, where K is nilpotent,
+// G/K) is soluble -- always true in the split tower, where K is nilpotent
+// or of odd order,
 // and in the certificates, where G/K is abelian.  If Magma declines (e.g.
 // both K and G/K insoluble) we fall back to the old exhaustive search:
 // conjugacy classes of subgroups of order #G/#K, one of which meets K

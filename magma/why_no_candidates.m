@@ -6,14 +6,16 @@
 //
 // For every pair that CertifyAdmissible declines, prints the residual and
 // then EVERY nontrivial proper normal subgroup M of the residual, with the
-// three tests NilpotentComplementedCandidates applies:
+// three tests AdmissibleComplementedCandidates applies:
 //
-//     inKr          M subset Ker(pi_r)  -- required
-//     nilpotent     IsNilpotent(M)      -- required
-//     complemented  IsSplitKernel(G_r, M) -- required
+//     inKr          M subset Ker(pi_r)      -- required
+//     allowed       LayerAllowed(G_r, M)    -- required: nilpotent (9.6.10),
+//                   or odd order with no C_{p-1} quotient of (G_r/M)^ab for
+//                   p | #M (9.5.8); the nilpotent column is shown as well
+//     complemented  IsSplitKernel(G_r, M)   -- required
 //
 // A row with all three true that did NOT end up in cands means the bug is in
-// NilpotentComplementedCandidates itself.  No such row means the residual is
+// AdmissibleComplementedCandidates itself.  No such row means the residual is
 // genuinely terminal and needs a certificate, not a tower fix.
 
 load "lib/records.m";
@@ -58,7 +60,7 @@ DumpGroup := procedure(n, i)
         printf "%oT%o  b=%o  residual G_r=%o (%o)  K_r=%o (%o)\n",
             n, i, v[1], GroupName(Gr), #Gr, GroupName(Kr), #Kr;
         printf "  cands returned: %o\n",
-            [ #M : M in NilpotentComplementedCandidates(Gr, Kr) ];
+            [ #M : M in AdmissibleComplementedCandidates(Gr, Kr) ];
         printf "  normal subgroups of G_r:\n";
 
         for R in NormalSubgroups(Gr) do
@@ -66,9 +68,10 @@ DumpGroup := procedure(n, i)
             if #M eq 1 or #M eq #Gr then continue; end if;
             inKr  := M subset Kr;
             nilp  := IsNilpotent(M);
+            allow := LayerAllowed(Gr, M);
             compl := IsSplitKernel(Gr, M);
-            printf "    |M|=%-5o %-18o inKr=%-5o nilpotent=%-5o complemented=%o\n",
-                #M, GroupName(M), inKr, nilp, compl;
+            printf "    |M|=%-5o %-18o inKr=%-5o nilpotent=%-5o allowed=%-5o complemented=%o\n",
+                #M, GroupName(M), inKr, nilp, allow, compl;
         end for;
         printf "\n";
     end for;

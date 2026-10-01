@@ -18,7 +18,7 @@ magma/
 └── lib/
     ├── records.m                record formats (EmbeddingProb, ...)
     ├── splitting.m              IsSplitKernel, SplitReduction (legacy)
-    ├── split_tower.m            nilpotent split-tower reduction
+    ├── split_tower.m            split-tower reduction (nilpotent / odd layers)
     ├── local_tame.m             tame finite + real local liftability
     ├── wild_prop.m              wild pro-p local liftability (by Jiuya Wang)
     ├── local_verdict.m          three-valued local verdicts + policy
@@ -88,7 +88,7 @@ local-quotient scan through their `Raw` parameter. Inside the tower, states are
 cumulative kernels in the original group and each is expanded once.
 
 **Lower.** `BWlowerSplit` is the largest `b(pi, phi)` over pairs *proven properly
-solvable*. `split_tower.m` returns every dead end of the nilpotent split tower,
+solvable*. `split_tower.m` returns every dead end of the split tower,
 and `certify.m` offers the chain all of them, stopping at the first that
 certifies. Picking one leaf in advance can only lose certificates, since which
 residual a certificate can handle does not follow from its size; offering all of
@@ -136,13 +136,14 @@ and which prime caused it.
    to a certificate, since for `B = 1` proper solvability is the inverse Galois
    problem for `G` over Q. Every number here is conditional on `G` being
    realisable, which Malle's conjecture assumes anyway.
-2. **Split tower properness.** `split_tower.m` only lifts a *proper* solution
-   through a *split* layer with nilpotent kernel, so what it needs is "a split
-   embedding problem with nilpotent kernel over a number field is properly
-   solvable" -- the inductive step of Shafarevich's theorem (NSW08 Ch. IX
-   Sec. 6), and Ikeda's theorem for abelian layers. Wang's coprimality
-   hypothesis belongs to her non-split Theorems 4.1/4.2. The exact NSW theorem
-   number still needs quoting; see the marked block in that file.
+2. **Split tower properness.** `split_tower.m` lifts a *proper* solution
+   psi : G_Q ->> G/M, with unknown field K, through a *split* layer
+   1 -> M -> G -> G/M -> 1. A layer is allowed (`LayerAllowed`) if either
+   M is nilpotent -- NSW08 Thm (9.6.10), no further hypothesis -- or #M is odd
+   and exp(M) is prime to #mu(K) -- NSW08 Cor (9.5.8)(ii)(c). Since K is
+   unknown, the second is enforced by requiring that p - 1 not divide
+   exp((G/M)^ab) for each prime p | #M, which rules out Q(mu_p) in K.
+   Note (9.5.8) asks for coprimality with mu(K), the TOP field, not mu(Q).
 3. **Exact intersection.** Conjecture 6 counts liftings with
    `K(phi~) cap Q(mu_d) = F` exactly. The certificates produce *some* proper
    lift; none of them checks the intersection. This follows Conjecture 7 as

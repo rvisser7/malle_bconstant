@@ -66,7 +66,7 @@ CertificateChain := [*
 CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false)
     leaves, fullySplit := SplitReductionLeaves(ebp : Raw := Raw);
     if fullySplit then
-        return true, "nilpotent split tower to trivial kernel", leaves[1];
+        return true, "split tower (nilpotent / odd layers) to trivial kernel", leaves[1];
     end if;
 
     best := leaves[1];
