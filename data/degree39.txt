@@ -232,7 +232,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 39T229|3|3|3|0|\N|\N|\N|\N
 39T230|1|1|1|0|\N|\N|\N|\N
 39T231|1|2|2|1|\N|\N|\N|\N
-39T232|\N|\N|\N|\N|\N|\N|\N|\N
+39T232|1|2|1|2|\N|\N|\N|\N
 39T233|1|1|1|0|\N|\N|\N|\N
 39T234|2|4|4|1|\N|\N|\N|\N
 39T235|1|1|1|0|\N|\N|\N|\N
