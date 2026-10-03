@@ -70,9 +70,10 @@ G = nTk.  `VerifyResidualWitness` (in `magma/lib/witness_body.m`)
 
 1. computes Gam = Gal(f) and F = K~ cap Q(mu_d) for the d of G;
 2. runs over the normal subgroups M of G with G/M isomorphic to Gam such that
-   * M is one admissible split-tower layer: a GAR layer, or complemented and
-     nilpotent ([NSW 9.6.10]), or complemented of odd order with the mu(K)
-     condition ([NSW 9.5.8]); and
+   * M is reached by a chain 1 = M_0 < ... < M_r = M of normal subgroups
+     of G, each M_i/M_(i-1) an admissible split-tower layer of G/M_(i-1): a
+     GAR layer, or complemented and nilpotent ([NSW 9.6.10]), or
+     complemented of odd order with the mu(K) condition ([NSW 9.5.8]); and
    * M is inside [G,G], so that the lifted G-field has no abelian
      subextension beyond those of the G/M-field, and the intersection with
      Q(mu_d) is still exactly F;

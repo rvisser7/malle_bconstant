@@ -104,7 +104,7 @@ b_W >= b(pi, phi) for the pair it realises, with exact intersection, so
 without README assumption 3. Candidates live in `data/witnesses/witnesses.txt`;
 `verify_witnesses_*.m` recomputes everything about them and `run_parallel.py`
 raises L to the best verified witness. A field for a quotient G/M also
-counts (a *residual* witness) when M is one admissible tower layer inside
+counts (a *residual* witness) when M is reached by admissible tower layers inside
 [G,G]. See `data/witnesses/README.md`.
 
 **Upper.** `BWupperLocal` is the largest `b(pi, phi)` over pairs *not proven

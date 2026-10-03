@@ -26,9 +26,10 @@
 // minimum of b over the survivors, which is valid whichever one is true.
 //
 // RESIDUAL WITNESSES.  A polynomial whose degree differs from n is read as a
-// witness for a QUOTIENT G/M, M normal in G, with M peelable by one
-// admissible layer of the split tower (nilpotent and complemented, odd with
-// the mu(K) condition and complemented, or a GAR layer).  Any proper
+// witness for a QUOTIENT G/M, M normal in G, with M peelable by a chain of
+// admissible split-tower layers (nilpotent and complemented, odd with the
+// mu(K) condition and complemented, or GAR), each taken in the quotient by
+// the previous ones.  Any proper
 // G/M-solution then lifts to a proper G-solution (see split_tower.m), and if
 // moreover M <= [G,G], every abelian subextension of the lift already lies in
 // the G/M-field, so the intersection with Q(mu_d) is unchanged and the pair is
@@ -257,19 +258,49 @@ WitnessAlpha := function(iso, aut, x)
     return iso(aut(x));
 end function;
 
+// One admissible split-tower layer: L normal in G, and a GAR layer, or
+// complemented and nilpotent [NSW 9.6.10], or complemented of odd order with
+// the mu(K) condition [NSW 9.5.8] -- exactly the layers split_tower.m peels.
+WitnessSingleLayer := function(G, L)
+    if IsGARLayer(L) then return true, Sprintf("GAR(%o)", #L); end if;
+    if LayerAllowed(G, L) and IsSplitKernel(G, L) then
+        return true, Sprintf(IsNilpotent(L) select "nilp(%o)" else "odd(%o)", #L);
+    end if;
+    return false, "";
+end function;
+
+// Is there a chain 1 = M_0 < M_1 < ... < M_r = M of normal subgroups of G
+// such that each M_i / M_(i-1) is an admissible layer of G / M_(i-1)?  Then
+// a proper G/M-solution climbs back to a proper G-solution one layer at a
+// time, exactly as in the split tower.  Largest first layer first; Depth
+// bounds the chain length.
+WitnessTowerReaches := function(G, M : Depth := 8)
+    if #M eq 1 then return true, ""; end if;
+    if Depth le 0 then return false, ""; end if;
+    Ls := [ R`subgroup : R in NormalSubgroups(G) | #R`subgroup gt 1 and R`subgroup subset M ];
+    Sort(~Ls, func< X, Y | #Y - #X >);
+    for L in Ls do
+        ok, why := WitnessSingleLayer(G, L);
+        if not ok then continue; end if;
+        if #L eq #M then return true, why; end if;
+        Q, q := quo< G | L >;
+        ok2, why2 := $$(Q, M @ q : Depth := Depth - 1);
+        if ok2 then return true, why cat ", " cat why2; end if;
+    end for;
+    return false, "";
+end function;
+
 // May a proper G/M-solution be lifted to a proper G-solution with the same
-// intersection with Q(mu_d)?  One admissible tower layer, and M <= [G,G].
+// intersection with Q(mu_d)?  M must be reachable by admissible tower
+// layers, and M <= [G,G].
 WitnessQuotientKernelOK := function(G, M)
     if #M eq 1 then return true, "M = 1"; end if;
     if not (M subset DerivedSubgroup(G)) then
         return false, "M is not inside [G,G]: the lift could meet Q(mu_d) in more than F";
     end if;
-    if IsGARLayer(M) then return true, "GAR layer"; end if;
-    if LayerAllowed(G, M) and IsSplitKernel(G, M) then
-        return true, IsNilpotent(M) select "split nilpotent layer [NSW 9.6.10]"
-                                    else "split odd layer [NSW 9.5.8]";
-    end if;
-    return false, "not an admissible layer";
+    ok, why := WitnessTowerReaches(G, M);
+    if ok then return true, "tower layers " cat why; end if;
+    return false, "not reachable by admissible tower layers";
 end function;
 
 // Verify a residual witness: f defines a field whose Galois group Gam is a
