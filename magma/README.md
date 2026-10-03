@@ -135,7 +135,11 @@ and which prime caused it.
 1. **`b_W >= b_M`.** Both bounds start at `b_M`; the trivial pair is never sent
    to a certificate, since for `B = 1` proper solvability is the inverse Galois
    problem for `G` over Q. Every number here is conditional on `G` being
-   realisable, which Malle's conjecture assumes anyway.
+   realisable, which Malle's conjecture assumes anyway. Strictly, the trivial
+   pair needs a `G`-extension with `K cap Q(mu_d) = Q` (exact intersection
+   again, see 3). For solvable `G` this follows from Shafarevich with
+   ramification kept away from the primes dividing `d`; for non-solvable `G`
+   it is part of the assumption.
 2. **Split tower properness.** `split_tower.m` lifts a *proper* solution
    psi : G_Q ->> G/M, with unknown field K, through a *split* layer
    1 -> M -> G -> G/M -> 1. A layer is allowed (`LayerAllowed`) if either
@@ -144,12 +148,31 @@ and which prime caused it.
    unknown, the second is enforced by requiring that p - 1 not divide
    exp((G/M)^ab) for each prime p | #M, which rules out Q(mu_p) in K.
    Note (9.5.8) asks for coprimality with mu(K), the TOP field, not mu(Q).
+   Third, a layer M all of whose composition factors are non-abelian with a
+   GAR-realisation over Q is peeled off WITHOUT a complement: by [MM99,
+   Thm IV.3.6] every embedding problem with such a kernel is properly
+   solvable (Thm IV.3.5 for M = H^r, with G permuting the factors). The table
+   is `IsGARSimpleOrder` in `split_tower.m`.
 3. **Exact intersection.** Conjecture 6 counts liftings with
    `K(phi~) cap Q(mu_d) = F` exactly. The certificates produce *some* proper
    lift; none of them checks the intersection. This follows Conjecture 7 as
    literally stated, and is a gap in the conjecture rather than in the code.
-4. **GAR table.** `structural.m` shape (2) is cited, not verified, and imposes
-   no centraliser condition on `G_r`. Check A6 in particular.
+   `diagnose_intersection_disc.m` / `_prp.m` measure it: a witness K for
+   (pi, phi) witnesses, WITH exact intersection, some refinement
+   (pi', phi'), so `min b(pi', phi')` over the refinements that are not
+   proven locally obstructed is a lower bound immune to this gap. Groups
+   where it is below `L` are flagged.
+4. **GAR table.** Checked against [MM99] Ch. IV: Thm 4.3 (one variable over
+   Q) and Ex. 4.1, 4.2 (L3(3), L3(4), two variables). There is no
+   centraliser condition (Prop. IV.3.1 and Thm IV.3.2/3.5/3.6). A6 is NOT
+   on the list (Thm 4.3(a) excludes n = 6) and has been removed; it had
+   been accepted before. Simple factors are identified by order, which is
+   exact by the classification except for {A8, L3(4)} (both GAR) and
+   {B_n(q), C_n(q)}, n >= 3, q odd (kept out of the table).
 5. **Wreath shape.** `structural.m` shape (3) accepts `T` abelian (class field
    theory) or `T` regular over Q(t); it no longer accepts arbitrary solvable `T`,
    which had no citation.
+6. **Supplements (experimental, off).** `certify.m` can, with
+   `SupplementDepth > 0`, certify a leaf through a maximal subgroup X with
+   X Fit(Ker) = G (lemma and proof in `certify.m`). Production runs use
+   depth 0; `diagnose_supplements_*.m` reports what depth 1 would change.

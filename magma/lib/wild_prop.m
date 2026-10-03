@@ -163,13 +163,12 @@ WildProPHasPreimageInWholeGroup := function(pi, b)
     B := Codomain(pi);
     bB := B!b;
 
-    for g in G do
-        if pi(g) eq bB then
-            return true, g;
-        end if;
-    end for;
-
-    return false, Id(G);
+    // Was a loop over every element of G.  Membership in the image plus one
+    // preimage is the same answer without enumerating G.
+    if not (bB in Image(pi)) then
+        return false, Id(G);
+    end if;
+    return true, bB @@ pi;
 
 end function;
 
@@ -361,6 +360,17 @@ WildProPCyclotomicGeneratorData := function(ebp, p)
             c1=rec(-4)=rec(-1)*c2^(-2).
 
             Magma writes C and B additively.
+
+            STATUS OF THIS MARKING (see lib/marking_body.m for details).
+            Checked: the cyclotomic values of c1, c2, c3 are consistent
+            with Labute's normal form and this commutator convention (the
+            Kummer quotient for 2 rules out the other sign for c3); and c3
+            may be taken with no unramified component
+            (substitute x3 -> x3 x2^k, x1 -> x2^-k x1 x2^k); and then c1.
+            NOT proven: that c2 is rec(2)^(-1) rather than rec(2)^t for some
+            other 2-adic unit t.  It only matters when phi(Frob_2) has order
+            >= 4; diagnose_marking_*.m lists those pairs and checks whether
+            any verdict depends on t.
         */
 
         cMinus := WildProPMinusOneGeneratorInC(C, f, d);

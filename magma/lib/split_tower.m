@@ -4,6 +4,9 @@
 //
 // Requires (load first): records.m, splitting.m
 //
+// Also defines the GAR table (IsGARSimpleOrder, HasGAROverQ, IsGARLayer),
+// which certificates/structural.m uses: this file is loaded before it.
+//
 // Given the embedding problem
 //
 //     1 -> N -> G -pi-> B -> 1,     N = Ker(pi),
@@ -65,6 +68,21 @@
 // complemented (by any involution of V outside N) but a greedy step ends the
 // tower there; whereas C_3^4 first, then C_2, reduces to the trivial kernel.
 // So: largest first, and backtrack.
+//
+//   (3) GAR LAYERS (new).  [MM99, Thm IV.3.6]: over a Hilbertian field,
+//       every finite embedding problem whose kernel has all composition
+//       factors non-abelian with a GAR-realisation has a proper solution.
+//       (Thm IV.3.5 is the characteristically simple case H^r; its proof
+//       reduces to a minimal normal kernel on whose simple factors G acts
+//       TRANSITIVELY, so factors permuted by G are covered.)  That is a
+//       statement about EVERY embedding problem with that kernel -- split or
+//       not, for every top field K -- so such a layer is peeled off WITHOUT
+//       asking for a complement.  Which simple groups qualify is the table
+//       in IsGARSimpleOrder below.
+//
+// The climb is unchanged: a proper solution of G/M lifts properly through
+// each layer, whichever of (1)-(3) admitted it, and the leaves are still
+// quotient problems, so local obstructions are still inherited from them.
 
 // May the complemented normal subgroup M of G be peeled off?  (1) or (2)
 // above.  Cheap tests first; the quotient is only formed for odd,
@@ -76,8 +94,159 @@ LayerAllowed := function(G, M)
     return forall{ p : p in PrimeDivisors(#M) | e mod (p - 1) ne 0 };
 end function;
 
-// Normal M <= N, M != 1, allowed by LayerAllowed and admitting a complement
-// in G, largest first.
+// ---------------------------------------------------------------------
+// GAR table: [MM99] = Malle-Matzat, Inverse Galois Theory, Ch. IV.
+// ---------------------------------------------------------------------
+//
+// Simple groups with a GAR-realisation over Q:
+//   Thm IV.4.3 (one variable)
+//     (a) A_n, n >= 5, n != 6
+//     (b) L_2(p), p prime, with (a/p) = -1 for some a in {2,3,5,7}
+//     (c) L_{2n+1}(p), gcd(2n+1, p-1) = 1, p > 3, p != -1 mod 12
+//     (d) U_{2n+1}(p), gcd(2n+1, p+1) = 1, p > 2, p != 1 mod 12
+//     (e) S_{2n}(p), p odd, p != +-1 mod 24, p not dividing n; or p = 2
+//     (f) O_{2n+1}(p), n >= 1, p odd, p != +-1 mod 24
+//     (h) O^-_{2n}(2), n >= 3
+//     (i) G_2(p)
+//     (n) the sporadic groups, except possibly M23
+//   Ex. IV.4.1, IV.4.2 (two variables): L_3(3), L_3(4)
+//   ((g), (j)-(m) are omitted: none of them is anywhere near our degrees.)
+//
+// NOT on the list, and so NOT accepted: A_6 (excluded in (a)), L_2(8),
+// L_2(16), L_2(25), L_2(27), M23, and anything else not named.  Thm IV.4.6
+// is over Q^ab and is no use here.  A_6 used to be accepted; it was wrong.
+//
+// IDENTIFICATION BY ORDER.  Composition factors are identified by their
+// order alone.  By the classification, two non-isomorphic finite simple
+// groups have the same order only for {A_8, L_3(4)} (order 20160 -- both
+// GAR, so harmless) and {B_n(q), C_n(q)} with n >= 3, q odd.  The table
+// therefore must not contain an order of the latter kind: in particular
+// 4585351680 = |O_7(3)| = |S_6(3)| is left out, because O_7(3) is GAR by
+// (f) while S_6(3) is not by (e) (3 divides n = 3).
+//
+// Every entry of GARExtraOrders was computed in GAP (Size of PSL, PSU,
+// PSp, SimpleGroup(...), and CharacterTable(...) for the sporadics).
+
+GARExtraOrders := [
+    < 5616,        "L3(3) [MM99 IV Ex. 4.1]" >,
+    < 20160,       "L3(4) = A8 order [MM99 IV Ex. 4.2, Thm 4.3(a)]" >,
+    < 372000,      "L3(5) [MM99 IV Thm 4.3(c)]" >,
+    < 6950204928,  "L3(17) [MM99 IV Thm 4.3(c)]" >,
+    < 6048,        "U3(3) [MM99 IV Thm 4.3(d)]" >,
+    < 5663616,     "U3(7) [MM99 IV Thm 4.3(d)]" >,
+    < 16938986400, "U3(19) [MM99 IV Thm 4.3(d)]" >,
+    < 25920,       "S4(3) = U4(2) = O6-(2) [MM99 IV Thm 4.3(e)]" >,
+    < 4680000,     "S4(5) [MM99 IV Thm 4.3(e)]" >,
+    < 138297600,   "S4(7) [MM99 IV Thm 4.3(e)]" >,
+    < 1451520,     "S6(2) [MM99 IV Thm 4.3(e)]" >,
+    < 47377612800, "S8(2) [MM99 IV Thm 4.3(e)]" >,
+    < 197406720,   "O8-(2) [MM99 IV Thm 4.3(h)]" >,
+    < 4245696,     "G2(3) [MM99 IV Thm 4.3(i)]" >,
+    < 5859000000,  "G2(5) [MM99 IV Thm 4.3(i)]" >,
+    // sporadics, Thm 4.3(n); M23 (10200960) deliberately absent
+    < 7920, "M11 [MM99 IV Thm 4.3(n)]" >,
+    < 95040, "M12 [MM99 IV Thm 4.3(n)]" >,
+    < 175560, "J1 [MM99 IV Thm 4.3(n)]" >,
+    < 443520, "M22 [MM99 IV Thm 4.3(n)]" >,
+    < 604800, "J2 [MM99 IV Thm 4.3(n)]" >,
+    < 44352000, "HS [MM99 IV Thm 4.3(n)]" >,
+    < 50232960, "J3 [MM99 IV Thm 4.3(n)]" >,
+    < 244823040, "M24 [MM99 IV Thm 4.3(n)]" >,
+    < 898128000, "McL [MM99 IV Thm 4.3(n)]" >,
+    < 4030387200, "He [MM99 IV Thm 4.3(n)]" >,
+    < 145926144000, "Ru [MM99 IV Thm 4.3(n)]" >,
+    < 448345497600, "Suz [MM99 IV Thm 4.3(n)]" >,
+    < 460815505920, "ON [MM99 IV Thm 4.3(n)]" >,
+    < 495766656000, "Co3 [MM99 IV Thm 4.3(n)]" >,
+    < 42305421312000, "Co2 [MM99 IV Thm 4.3(n)]" >,
+    < 64561751654400, "Fi22 [MM99 IV Thm 4.3(n)]" >,
+    < 273030912000000, "HN [MM99 IV Thm 4.3(n)]" >,
+    < 51765179004000000, "Ly [MM99 IV Thm 4.3(n)]" >,
+    < 90745943887872000, "Th [MM99 IV Thm 4.3(n)]" >,
+    < 4089470473293004800, "Fi23 [MM99 IV Thm 4.3(n)]" >,
+    < 4157776806543360000, "Co1 [MM99 IV Thm 4.3(n)]" >,
+    < 86775571046077562880, "J4 [MM99 IV Thm 4.3(n)]" >,
+    < 1255205709190661721292800, "Fi24' [MM99 IV Thm 4.3(n)]" >,
+    < 4154781481226426191177580544000000, "B [MM99 IV Thm 4.3(n)]" >,
+    < 808017424794512875886459904961710757005754368000000000, "M [MM99 IV Thm 4.3(n)]" >
+];
+
+// Is o the order of a non-abelian simple group with GAR over Q?  Only
+// meaningful when o IS the order of a simple group (see above).
+IsGARSimpleOrder := function(o)
+    // (a) alternating, n != 6
+    n := 5; a := 60;
+    while a le o do
+        if a eq o and n ne 6 then
+            return true, Sprintf("A%o [MM99 IV Thm 4.3(a)]", n);
+        end if;
+        n +:= 1; a := Factorial(n) div 2;
+    end while;
+    // (b) L2(p): o = p(p^2-1)/2
+    r := Iroot(2*o, 3);
+    for p in [Max(5, r - 2) .. r + 2] do
+        if IsPrime(p) and p*(p^2 - 1) div 2 eq o then
+            if exists{ q : q in [2, 3, 5, 7] | q ne p and LegendreSymbol(q, p) eq -1 } then
+                return true, Sprintf("L2(%o) [MM99 IV Thm 4.3(b)]", p);
+            end if;
+        end if;
+    end for;
+    for t in GARExtraOrders do
+        if t[1] eq o then
+            return true, t[2];
+        end if;
+    end for;
+    return false, "";
+end function;
+
+// Simple non-abelian K with GAR over Q.  Kept under its old name; it used
+// to live in certificates/structural.m with a hard-coded A5..A9, PSL(2,7)
+// list that wrongly included A6.
+HasGAROverQ := function(K)
+    if IsAbelian(K) or not IsSimple(K) then return false, ""; end if;
+    ok, why := IsGARSimpleOrder(#K);
+    return ok, why;
+end function;
+
+// Every composition factor of M non-abelian and GAR over Q, i.e. M is a
+// legitimate kernel for [MM99, Thm IV.3.6].
+IsGARLayer := function(M)
+    if #M eq 1 or IsSolvable(M) then return false, ""; end if;
+    // Orders along a composition series; Sort+Set so as not to depend on
+    // which end CompositionSeries starts from.
+    ords := Sort(SetToSequence({ #X : X in CompositionSeries(M) } join { 1, #M }));
+    whys := [];
+    for i in [1 .. #ords - 1] do
+        o := ords[i+1] div ords[i];
+        if IsPrime(o) then return false, ""; end if;     // abelian factor
+        ok, why := IsGARSimpleOrder(o);
+        if not ok then return false, ""; end if;
+        Append(~whys, why);
+    end for;
+    return true, "GAR layer: " cat &cat[ w cat "; " : w in whys ];
+end function;
+
+// Normal M <= N, M != 1, that the tower may peel off, largest first:
+//   * a GAR layer (3), complemented or not; or
+//   * a complemented layer allowed by LayerAllowed, (1) or (2).
+AdmissibleCandidates := function(G, N)
+    cands := [];
+    for R in NormalSubgroups(G) do
+        M := R`subgroup;
+        if #M eq 1 or #M eq #G then continue; end if;
+        if not (M subset N) then continue; end if;
+        if IsGARLayer(M) then Append(~cands, M); continue; end if;
+        if not LayerAllowed(G, M) then continue; end if;
+        ok := IsSplitKernel(G, M);
+        if ok then Append(~cands, M); end if;
+    end for;
+    Sort(~cands, func< X, Y | #Y - #X >);
+    return cands;
+end function;
+
+// The pre-GAR candidate list (complemented, LayerAllowed), unchanged.  Kept
+// for the diagnostics (inspect_stalled.m, why_no_candidates.m) and for
+// tests/test_layer_allowed.m.  The tower itself uses AdmissibleCandidates.
 AdmissibleComplementedCandidates := function(G, N)
     cands := [];
     for R in NormalSubgroups(G) do
@@ -95,7 +264,8 @@ end function;
 // Old name, kept for the diagnostics (inspect_stalled.m, why_no_candidates.m).
 NilpotentComplementedCandidates := AdmissibleComplementedCandidates;
 
-// Depth-first search for towers of complemented admissible layers.
+// Depth-first search for towers of admissible layers (complemented
+// nilpotent / odd layers, and GAR layers).
 //
 // STATE.  A node of the search is a normal subgroup K of the ORIGINAL group
 // G0 (the cumulative kernel quotiented out so far), and the problem at that
@@ -143,7 +313,7 @@ TowerLeavesFrom := function(G0, pi0, B, K, depth, cap, seen)
     if #N eq 1 then return true, [* <GK, piK> *], seen; end if;
     if depth le 0 then return false, [* <GK, piK> *], seen; end if;
 
-    cands := AdmissibleComplementedCandidates(GK, N);
+    cands := AdmissibleCandidates(GK, N);
     if #cands eq 0 then return false, [* <GK, piK> *], seen; end if;
 
     leaves := [* *];

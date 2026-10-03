@@ -9,8 +9,9 @@ is the case the LMFDB display wants to distinguish, so the convention adds
 
     4 : malle_turkelli_b is known, malle_wang_b is not
 
-This script is the downstream pass that run_parallel.py's b_values() docstring
-refers to. It was referenced but never committed, so it is written here.
+run_parallel.py now emits status 4 itself (see b_values), so files it writes
+already carry it. This script is for files written before that change; on a
+file that already has its 4s it changes nothing.
 
 A row is given status 4, in a given ordering block, exactly when
 

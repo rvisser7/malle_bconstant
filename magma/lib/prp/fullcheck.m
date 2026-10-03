@@ -56,12 +56,13 @@ EvaluatePairs := function(G)
     return d, a, num_Smin, #T, bM, bT, evaluated_pairs;
 end function;
 
-FullCheck := function(G : Policy := DefaultLocalPolicy)
+FullCheck := function(G : Policy := DefaultLocalPolicy, SupplementDepth := 0)
     d, a, num_Smin, nPairs, bM, bT, evaluated_pairs := EvaluatePairs(G);
 
     BWlowerSplit, BWupperLocal, splitCandidates, localCandidates,
         undetermined, centralStalled :=
-            BWBoundsFromPairs(d, evaluated_pairs, bM, bT, Policy);
+            BWBoundsFromPairs(d, evaluated_pairs, bM, bT, Policy :
+                              SupplementDepth := SupplementDepth);
 
     return rec< FullCheckResultFormat |
         group_order              := #G,

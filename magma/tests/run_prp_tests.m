@@ -48,7 +48,12 @@ CASES := [*
     < W(5, 4), "C5 wr C4", 51, 164, -1,
       "independent brute force: b_M^rad = 51, max b(pi,phi) = 164 at Q(mu_5)", false >,
     < W(4, 4), "C4 wr C4", 50, 79, -1,
-      "Wang Example 3.6: largest b(pi,phi) = 79 at Q(i)", true >
+      "Wang Example 3.6: largest b(pi,phi) = 79 at Q(i)", true >,
+    < TransitiveGroup(15, 95), "15T95 = A5^3 : C6", 45, 49, 49,
+      "only pair above b_M: F = Q(sqrt 5); A5^3 is a GAR layer "
+      cat "[MM99 IV.3.5], residual C6 -> C2 splits.  Exact intersection "
+      cat "holds: G^ab = C6, so K cap Q(mu_180) is the C6 field Q(sqrt 5) E "
+      cat "cut down, and E can be any cyclic cubic, e.g. conductor 7", true >
 *];
 
 Label := function(G)

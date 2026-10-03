@@ -3,6 +3,7 @@
 // =====================================================================
 //
 // Requires (load first): records.m, splitting.m, split_tower.m
+//   (split_tower.m provides the GAR table: HasGAROverQ, IsGARLayer)
 //   (was lib/known_residuals.m; renamed to say what distinguishes it from
 //    the arithmetic certificates, which is that phi never appears here)
 //
@@ -16,7 +17,7 @@
 // shapes with citations, plus an honest "false" with a reason, so that the
 // table grows deliberately rather than by silent fallthrough.
 //
-// Three shapes, all requiring the residual to be split.
+// Three shapes; (1) and (3) require the residual to be split, (2) does not.
 //
 // (1) DIRECT PRODUCT  G_r = K x B.  A proper solution is a pair (psi, phi)
 //     with psi : G_Q ->> K and Q(psi) cap Q(phi) = Q.  Enough to know K has
@@ -24,8 +25,11 @@
 //     ramification chosen away from the primes ramified in Q(phi)), or K
 //     regular over Q(t) (table below, then Hilbert irreducibility).
 //
-// (2) GAR.  Residual split with kernel K having the GAR property over Q.
-//     See Malle-Matzat [MM99] III.
+// (2) GAR.  Every composition factor of K non-abelian with a GAR-
+//     realisation over Q: [MM99, Thm IV.3.6], no splitting hypothesis and no
+//     condition on the action.  The split tower now peels such layers off
+//     itself (split_tower.m, layer type (3)), so a residual reaching this
+//     test should never pass it; the check is kept as a backstop.
 //
 // (3) INDUCED / WREATH  G_r = T wr B with K = T^#B the base group; Wang's
 //     Lemma 3.8 argument.  Implemented for #B = 2 only.
@@ -46,40 +50,32 @@
 // now accepts only those two cases.  This can only LOWER a certified lower
 // bound, never produce a false one; diagnose before republishing.
 //
-// TWO ENTRIES NEED CONFIRMATION BEFORE PUBLICATION, both in shape (2):
-//   * the GAR table is cited, not verified here;
-//   * the usual GAR statement in [MM99] carries a centraliser hypothesis on
-//     the ambient group, and the test below imposes no condition on B or on
-//     C_{G_r}(K).  Check the exact form you are relying on.
-
-// ---------------------------------------------------------------------
-// Groups with the GAR property over Q: certifies ANY split embedding
-// problem with this kernel.  A_n and S_n have GAR for all n >= 5; the bound
-// of 9 is only to keep the isomorphism tests cheap.  Widen freely.
-// ---------------------------------------------------------------------
-//
-// A6 in particular deserves a look before publication: Out(A6) = C2^2 is
-// exceptional, and GAR is a statement about realising Aut(K).
-HasGAROverQ := function(K)
-    for m in [5..9] do
-        if #K eq Factorial(m) div 2 and IsIsomorphic(K, Alt(m)) then
-            return true, Sprintf("A%o (GAR over Q, [MM99] -- UNVERIFIED)", m);
-        end if;
-    end for;
-    if #K eq 168 and IsIsomorphic(K, PSL(2, 7)) then
-        return true, "PSL(2,7) (GAR over Q, [MM99] -- UNVERIFIED)";
-    end if;
-    return false, "";
-end function;
+// SHAPE (2), RESOLVED.  [MM99] Thm IV.3.2/3.5/3.6 (checked against the
+// text): every finite embedding problem over a Hilbertian field whose kernel
+// has GAR composition factors has a proper solution.  There is no
+// centraliser hypothesis; Prop. IV.3.1 embeds the extension in
+// Aut(H) x G for centreless H.  The GAR table itself now lives in
+// split_tower.m (IsGARSimpleOrder), with the citation for every entry;
+// A6 has been REMOVED from it (Thm IV.4.3(a) requires n != 6).
 
 // Groups regular over Q(t) (Galois group of a regular extension of Q(t)),
 // hence over F(t) for every number field F, with infinitely many linearly
 // disjoint specialisations by Hilbert irreducibility.  Non-solvable entries
 // only; solvable groups are handled separately below.
+//
+// A GAR-realisation is in particular a geometric (regular) realisation
+// over a rational function field Q(t_1, ..., t_s), which is all that shapes
+// (1) and (3) use (Hilbert irreducibility over Q or over F = Q(phi)), so
+// every simple group in the GAR table counts.  A_6 is not GAR but IS
+// regular over Q(t) (Hilbert: every A_n and S_n), so it is listed here
+// explicitly, along with the S_m.
 KnownRegularTableOverQ := function(K)
     gar, why := HasGAROverQ(K);
     if gar then return true, why; end if;
     for m in [5..9] do
+        if #K eq Factorial(m) div 2 and IsIsomorphic(K, Alt(m)) then
+            return true, Sprintf("A%o (regular over Q(t), Hilbert)", m);
+        end if;
         if #K eq Factorial(m) and IsIsomorphic(K, Sym(m)) then
             return true, Sprintf("S%o (regular over Q(t))", m);
         end if;
@@ -174,6 +170,13 @@ StructuralResidualIsProperlySolvable := function(ebp1)
 
     if #K eq 1 then return true, "trivial residual"; end if;
 
+    // Shape (2), [MM99 Thm IV.3.6]: no splitting hypothesis, so before the
+    // split test.
+    gar, whyGar := IsGARLayer(K);
+    if gar then
+        return true, "kernel with GAR composition factors [MM99 IV.3.6]; " cat whyGar;
+    end if;
+
     ok := IsSplitKernel(Gr, K);
     if not ok then
         return false, "residual not split; arithmetic case";
@@ -186,11 +189,6 @@ StructuralResidualIsProperlySolvable := function(ebp1)
             return true, "direct product, K " cat why;
         end if;
         return false, Sprintf("direct product but K (order %o) not in table", #K);
-    end if;
-
-    gar, whyGar := HasGAROverQ(K);
-    if gar then
-        return true, "split residual, kernel " cat whyGar;
     end if;
 
     isWr, T := IsWreathResidual(Gr, K, pi);

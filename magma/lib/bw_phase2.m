@@ -46,6 +46,9 @@
 // quotients, diagnostics).  It is now built once per pi.  In Gpiphi's output
 // distinct pi have distinct kernels, so the kernel is the cache key.
 //
+// SupplementDepth is passed through to CertifyAdmissible (see certify.m);
+// 0, the default, reproduces the published behaviour exactly.
+//
 // DIAGNOSTIC FIELDS.  undetermined_local is now 0 or 1: whether the pair
 // that fixed BWupperLocal was admitted on an UNDETERMINED verdict (if 0, the
 // sound/legacy policy difference cannot have moved the upper bound).
@@ -53,7 +56,7 @@
 // bound whose residual is central and which did not certify.  Both used to
 // depend on Gpiphi's enumeration order; now they do not.
 
-BWBoundsFromPairs := function(d, evaluated_pairs, bM, bT, policy)
+BWBoundsFromPairs := function(d, evaluated_pairs, bM, bT, policy : SupplementDepth := 0)
     BWlowerSplit := bM;
     BWupperLocal := bM;
     splitCandidates := [];
@@ -117,7 +120,8 @@ BWBoundsFromPairs := function(d, evaluated_pairs, bM, bT, policy)
             end if;
         end if;
 
-        autoSolved, why, ebp1 := CertifyAdmissible(ebp, d : Policy := policy, Raw := raw);
+        autoSolved, why, ebp1 := CertifyAdmissible(ebp, d : Policy := policy, Raw := raw,
+                                                   SupplementDepth := SupplementDepth);
         if autoSolved then
             BWlowerSplit := bval_int;
             Append(~splitCandidates, rec< FullCheckCandidateFormat |

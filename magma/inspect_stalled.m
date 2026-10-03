@@ -95,7 +95,7 @@ InspectGroup := procedure(n, i)
         // What the tower had available AT the residual.  A non-empty list
         // here means the tower search stopped early -- a bug, not a missing
         // certificate.
-        cands := AdmissibleComplementedCandidates(Gr, Kr);
+        cands := AdmissibleCandidates(Gr, Kr);   // what the tower uses
         printf "    b=%o  |B|=%o  UNCERT  G_r=%o (%o)  K_r=%o (%o)  "
              * "split=%o direct=%o Kr_solv=%o local=%o  cands=%o\n",
             v[1], #ebp`B,

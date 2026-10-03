@@ -63,10 +63,42 @@ CertificateChain := [*
 // failure.
 //
 // Raw: optional precomputed SplitTowerRaw for this pi (see split_tower.m).
-CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false)
+//
+// SUPPLEMENTS (new, OFF by default: SupplementDepth := 0).  When no leaf
+// certifies, each leaf 1 -> N1 -> G1 -> B is offered once more through a
+// SUBGROUP: for a maximal subgroup X of G1 not containing F := Fit(N1),
+// the problem (X, pi1|X, phi) is certified recursively, depth-limited.
+//
+//   Lemma.  Let M <= N1 be nilpotent and normal in G1, and X <= G1 with
+//   X M = G1.  If (X, pi1|X, phi) is properly solvable, so is
+//   (G1, pi1, phi).
+//
+//   Proof.  Let M~ be the relatively free group of class c(M) and exponent
+//   exp(M) on generators indexed by X x Y, Y a generating set of M; it is
+//   finite and nilpotent, X permutes its generators, and (x, y) -> x y x^-1
+//   extends to an X-equivariant surjection f : M~ ->> M.  Then
+//   (m, x) -> f(m) x is a surjection Theta : M~ : X ->> G1, since X M = G1,
+//   and pi1 . Theta kills M~.  A proper solution psi : G_Q ->> X lifts
+//   through the SPLIT layer with NILPOTENT kernel M~ to a proper
+//   psi~ : G_Q ->> M~ : X [NSW08 (9.6.10)], and Theta . psi~ is a proper
+//   solution for G1.  []
+//
+// M ranges over nilpotent normal subgroups inside N1, all of which lie in
+// F = Fit(N1) (characteristic in N1, so normal in G1); "X F = G1" is the
+// weakest form of the hypothesis, and for maximal X it says F is not in X.
+// A supplement S lies in some maximal X with X F = G1, and the lemma
+// applies inside X again (Dedekind), so maximal subgroups up to
+// conjugacy suffice.  Conjugate X give isomorphic problems (B abelian).
+//
+// A complement is the case X meet M = 1, so this strictly extends the split
+// tower.  The X-problems are SUBproblems, not quotients: insolvability does
+// NOT pass from them to G1, which is why they are only ever used here, to
+// raise the lower bound, and never in LocalVerdictWithQuotients.
+CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false,
+                                       SupplementDepth := 0)
     leaves, fullySplit := SplitReductionLeaves(ebp : Raw := Raw);
     if fullySplit then
-        return true, "split tower (nilpotent / odd layers) to trivial kernel", leaves[1];
+        return true, "split tower (nilpotent / odd / GAR layers) to trivial kernel", leaves[1];
     end if;
 
     best := leaves[1];
@@ -95,6 +127,34 @@ CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := fals
     if #leaves gt 1 then
         reasons := reasons cat Sprintf("(and no certificate on any of the "
                                        cat "other %o leaves)", #leaves - 1);
+    end if;
+
+    if SupplementDepth gt 0 then
+        for k := 1 to #leaves do
+            ebp1 := leaves[k];
+            G1 := ebp1`G;
+            N1 := Kernel(ebp1`pi);
+            F := FittingSubgroup(N1);
+            if #F eq 1 then continue; end if;
+            for R in MaximalSubgroups(G1) do
+                X := R`subgroup;
+                if F subset X then continue; end if;
+                piX := hom< X -> ebp1`B | [ ebp1`pi(X.i) : i in [1..Ngens(X)] ] >;
+                subprob := rec< EmbeddingProb |
+                    B := ebp1`B, G := X, C := ebp1`C, f := ebp1`f,
+                    pi := piX, phi := ebp1`phi, d := ebp1`d >;
+                ok, why, _ := $$(subprob, d : Policy := Policy,
+                                 SupplementDepth := SupplementDepth - 1);
+                if ok then
+                    return true,
+                           Sprintf("leaf %o of %o (#G = %o, #Ker = %o), supplement "
+                                   cat "of Fit(Ker) (#X = %o, #Fit = %o): %o",
+                                   k, #leaves, #G1, #N1, #X, #F, why),
+                           ebp1;
+                end if;
+            end for;
+        end for;
+        reasons := reasons cat "; no supplement certified";
     end if;
     return false, reasons, best;
 end function;

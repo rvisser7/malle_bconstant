@@ -19,7 +19,14 @@ values disagree with the freshly computed ones is reported and left alone.
 With --verify it instead recomputes rows that are ALREADY filled in, as if the
 data files were empty, and reports every cell where the fresh value disagrees
 with what is on disk. Nothing is written in this mode. Use --verify-sample to
-spot-check a random subset rather than all 512,614 rows.
+spot-check a random subset rather than all 512,614 rows, and --only-status
+to restrict either mode to rows with a given stored status, e.g.
+
+    python3 run_parallel.py --ordering prp --verify --only-status 1,2,3
+
+re-checks every row whose bracket was ever moved off b_M or b_T -- the rows
+an older, less careful version of the certificates or local tests could have
+got wrong.
 
 Mismatches are appended to --mismatch-log as they are found, not at the end of
 the run, so an interrupted verify pass still leaves a usable record. Pair that
@@ -49,6 +56,7 @@ COLUMNS = [
     "malle_b_prp", "malle_turkelli_b_prp", "malle_wang_b_prp", "malle_b_status_prp",
 ]
 NULL = r"\N"
+STATUS_WANG_UNKNOWN = "4"   # b_T known, b_W not (see b_values)
 
 # Repo layout: this script lives at the repository root; magma/ and data/ are
 # subdirectories of it.
@@ -109,15 +117,20 @@ def b_values(b_M, b_T, bw_lower, bw_upper):
               1 : b_M < b_W = b_T
               2 : b_M = b_W < b_T
               3 : b_M < b_W < b_T
-             \\N : the comparison cannot be determined from [L, U]
+              4 : b_M < b_T, and the comparisons cannot be determined
+                  from [L, U] (so b_W is unknown)
 
     Each comparison is resolved independently; the status is set only when BOTH
     resolve.  This can succeed even when b_W itself is not pinned down -- e.g.
     b_M=1, b_T=5, [L,U]=[2,4] proves b_M < b_W < b_T (status 3) without knowing
     the exact value of b_W.
 
-    Note: status code 4 (turkelli known, wang unknown) is applied downstream by
-    scripts/set_status_4.py, not here.
+    Status 4 used to be applied downstream by scripts/set_status_4.py.  It is
+    now emitted here, because a stored 4 next to a freshly computed \\N made
+    every --retry-unresolved row a CONFLICT and every --verify row a
+    MISMATCH.  It is exactly the "neither comparison resolves" case: then
+    L < U (else both resolve), so b_W is \\N, and b_M < b_T.  The script is
+    still correct, and idempotent, on files written before this change.
     """
     L, U = bw_lower, bw_upper
 
@@ -141,6 +154,9 @@ def b_values(b_M, b_T, bw_lower, bw_upper):
 
     status = {("eq", "eq"): "0", ("lt", "eq"): "1",
               ("eq", "lt"): "2", ("lt", "lt"): "3"}.get((mw, wt), NULL)
+    if status == NULL:
+        assert wang == NULL and b_M < b_T
+        status = STATUS_WANG_UNKNOWN
 
     return [str(b_M), str(b_T), wang, status]
 
@@ -219,7 +235,14 @@ def compare_row(label, old, new, colnames):
     A stored \\N against a computed value is NOT a mismatch: it just means that
     cell had never been computed. A stored value against a computed \\N IS a
     mismatch -- we used to be able to determine it and now cannot.
+
+    A stored status 4 ("b_W unknown") is a placeholder, not a determination,
+    so it is treated like \\N: replacing it by 0-3 is the point of a retry,
+    not a conflict.  The four cells are (b, turkelli, wang, status).
     """
+    old = list(old)
+    if old[3] == STATUS_WANG_UNKNOWN and old[2] == NULL:
+        old[3] = NULL
     if all(o == NULL for o in old):
         return "new", ""
     bad = [(c, o, n) for c, o, n in zip(colnames, old, new)
@@ -420,6 +443,16 @@ def main():
     grp.add_argument("--seed", type=int, default=0,
                      help="random seed for --verify-sample (default 0, so the "
                           "same sample is reproducible)")
+    grp.add_argument("--only-status", default=None, metavar="CODES",
+                     help="restrict --verify (or --retry-unresolved) to rows "
+                          "whose STORED status in this ordering is one of "
+                          "CODES, comma-separated, N for \\N; e.g. 1,2,3 to "
+                          "re-check every row whose bracket ever moved off b_M "
+                          "or b_T")
+    grp.add_argument("--labels-file", default=None, metavar="PATH",
+                     help="restrict --verify (or --retry-unresolved) to the "
+                          "labels listed in PATH (one per line, e.g. 24T8727; "
+                          "blank lines and # comments ignored)")
     grp.add_argument("--mismatch-log",
                      default=os.path.join(REPO_ROOT, "bconstant_mismatches.log"),
                      help="where to APPEND mismatches found by --verify, as they "
@@ -437,6 +470,16 @@ def main():
     target_offsets = [COLUMNS.index(c) for c in cfg["cols"]]
     sentinel_off = COLUMNS.index(cfg["sentinel"])
     wang_off = COLUMNS.index(cfg["cols"][2])
+    status_off = COLUMNS.index(cfg["cols"][3])
+    only_labels = None
+    if args.labels_file is not None:
+        with open(args.labels_file, encoding="utf-8") as fh:
+            only_labels = {ln.split("#", 1)[0].strip() for ln in fh}
+        only_labels.discard("")
+    only_status = None
+    if args.only_status is not None:
+        only_status = {NULL if c.strip().upper() == "N" else c.strip()
+                       for c in args.only_status.split(",") if c.strip()}
     entry = args.entry or cfg["entry"]
 
     entry_path = os.path.join(args.magma_dir, entry)
@@ -495,6 +538,20 @@ def main():
                 extra = f" ({len(retry)} of them unresolved b_W)" if retry else ""
                 print(f"[plan] degree {n}: {len(targets)}/{len(rows)} groups "
                       f"to compute{extra}")
+
+        if only_labels is not None:
+            targets = [i for i in targets if f"{n}T{i}" in only_labels]
+            if not targets:
+                continue
+
+        if only_status is not None:
+            targets = [i for i in targets
+                       if idx_to_row[i][status_off] in only_status]
+            if not args.quiet:
+                print(f"[plan] degree {n}: {len(targets)} groups with stored "
+                      f"status in {sorted(only_status)}")
+            if not targets:
+                continue
 
         for c in chunked(targets, args.chunk_size):
             tasks.append((n, c))

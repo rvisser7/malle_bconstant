@@ -35,7 +35,7 @@ DATA_DIR = os.path.join(REPO_ROOT, "data")
 # actually being worked on.
 RAW_URL = ("https://raw.githubusercontent.com/rvisser7/malle_bconstant"
            "/{branch}/data/degree{n}.txt")
-DEFAULT_BRANCH = "paderborn"
+DEFAULT_BRANCH = "main"   # was "paderborn", stale since paderborn_v2 was merged
 
 
 def read_lines(degree, data_dir=None, download=False, branch=DEFAULT_BRANCH):
