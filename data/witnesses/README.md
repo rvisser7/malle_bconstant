@@ -63,6 +63,34 @@ exponent > 2 the result can therefore be conservative (`exact = 0`). Pinning
 down the true identification would need actual Frobenius elements, not
 cycle types.
 
+## Residual witnesses
+
+A polynomial whose degree is not n is read as a witness for a quotient of
+G = nTk.  `VerifyResidualWitness` (in `magma/lib/witness_body.m`)
+
+1. computes Gam = Gal(f) and F = K~ cap Q(mu_d) for the d of G;
+2. runs over the normal subgroups M of G with G/M isomorphic to Gam such that
+   * M is one admissible split-tower layer: a GAR layer, or complemented and
+     nilpotent ([NSW 9.6.10]), or complemented of odd order with the mu(K)
+     condition ([NSW 9.5.8]); and
+   * M is inside [G,G], so that the lifted G-field has no abelian
+     subextension beyond those of the G/M-field, and the intersection with
+     Q(mu_d) is still exactly F;
+3. for every isomorphism alpha : Gam -> G/M (a fixed one composed with all of
+   Aut(Gam)), takes the realised kernel q^-1(alpha(Gal(K~/F))), narrows phi
+   with Frobenius cycle types transported by alpha, and records the minimum b
+   over the survivors;
+4. reports the maximum over M and alpha. Each (M, alpha) is a genuine proper
+   solution after lifting through M, so the maximum is a valid lower bound.
+
+Automorphisms of G/M need not lift to G, which is why step 3 runs over all of
+Aut(Gam) rather than one isomorphism: for G/M = C4:C4, for example, the
+characteristic C4 x C2 subgroup gives a smaller b than the other two.
+
+The six degree-20 entries (20T105, 20T111, 20T386, 20T390, 20T396, 20T397,
+disc ordering) are residual witnesses of this kind, with G = O_5(G) : H and
+H of order 16. Each should verify to b_witness = b_T.
+
 ## Output format (`verified_*.txt`)
 
     label|b_witness|exact|b_M|b_T|survivors|source

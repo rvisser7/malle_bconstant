@@ -12,6 +12,12 @@
 //   x^3 - 2          3T2 = S3.  Disc d = 2, so Q(mu_d) = Q: only the
 //                    trivial pair, b_witness = b_M = 1.
 //   x^3 - 2 as 3T1   wrong label: must be reported as an error.
+//
+// With slow:=1, also two RESIDUAL witnesses (degree-16 fields for
+// G/O_5(G), see data/witnesses/README.md), each expected to give b_T:
+//
+//   20T397  Q16 field,  Gal(K/Q(sqrt5)) = C8   ->  b_witness = 2
+//   20T396  QD16 field, Gal(K/Q(sqrt5)) = D8   ->  b_witness = 2
 
 load "lib/records.m";
 load "lib/splitting.m";
@@ -50,6 +56,21 @@ catch err
 end try;
 printf "  3T1  x^3-2 (wrong label): error raised = %o\n", raised;
 if not raised then failures +:= 1; end if;
+
+if assigned slow then
+    for c in [
+        < "20T397", [111045689000000,-171736784000000,95714448000000,-18991071640000,
+                     -1939992521000,1253116572000,-76821581400,-26955558320,3083021051,
+                     283142072,-42555092,-1642576,281220,5424,-872,-8,1], 2 >,
+        < "20T396", [15625,0,-37500,0,40500,0,-23000,0,8075,0,-1800,0,260,0,-20,0,1], 2 >
+    ] do
+        b, exact, bM, bT, ns, why := VerifyResidualWitness(c[1], c[2]);
+        printf "  %o residual: b=%o exact=%o b_M=%o b_T=%o (%o)\n", c[1], b, exact, bM, bT, why;
+        if b ne c[3] or bT ne c[3] then failures +:= 1; end if;
+    end for;
+else
+    print "  (skipping the residual witnesses: slow; run with slow:=1)";
+end if;
 
 printf "test_witness: %o failures\n", failures;
 assert failures eq 0;

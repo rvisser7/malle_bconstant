@@ -4,8 +4,12 @@
 #
 #   label    transitive group label nTk of the Galois group of poly
 #   ordering disc, prp or both: which column(s) the witness is offered to
-#   poly     coefficients, constant term first, LMFDB style: [c0,c1,...,cn]
+#   poly     coefficients, constant term first, LMFDB style: [c0,c1,...,cn].
+#            Degree n: a field with Galois group nTk.  Any other degree: a
+#            RESIDUAL witness, a field whose Galois group is a quotient G/M
+#            with M peelable by the split tower (see README.md).
 #   source   where the field came from: an LMFDB label, or "constructed"
+#            (no spaces: the verifier strips them)
 #   note     free text (optional)
 #
 # Nothing on this line is trusted.  magma/verify_witnesses_{disc,prp}.m
@@ -15,3 +19,13 @@
 #
 label|ordering|poly|source|note
 6T5|disc|[4,0,0,-2,0,0,1]|constructed|x^6-2x^3+4, cube roots of 1+-sqrt(-3); Kluners' C3 wr C2 with Q(sqrt -3) inside; smoke test, expect b_witness = b_W = 2 (disc)
+#
+# Residual witnesses: degree-16 fields for G/O_5(G), F = Q(sqrt 5), not
+# containing zeta_5.  O_5(G) is a complemented elementary abelian 5-group
+# inside [G,G] in all six groups.
+20T105|disc|[1711,9889,19169,19024,28871,3012,27841,-8493,18077,-7367,6096,-1822,861,-154,49,-4,1]|PARI-bnrclassfield-Q(sqrt5)-m145|residual witness for G/O5(G); H = C4:C4, Gal(K/Q(sqrt5)) = C4 x C2; expect b_witness = b_T
+20T111|disc|[1711,9889,19169,19024,28871,3012,27841,-8493,18077,-7367,6096,-1822,861,-154,49,-4,1]|PARI-bnrclassfield-Q(sqrt5)-m145|residual witness for G/O5(G); H = C4:C4, Gal(K/Q(sqrt5)) = C4 x C2; expect b_witness = b_T
+20T390|disc|[1711,9889,19169,19024,28871,3012,27841,-8493,18077,-7367,6096,-1822,861,-154,49,-4,1]|PARI-bnrclassfield-Q(sqrt5)-m145|residual witness for G/O5(G); H = C4:C4, Gal(K/Q(sqrt5)) = C4 x C2; expect b_witness = b_T
+20T386|disc|[76,-256,784,-1616,2716,-3688,3976,-3408,2162,-832,56,128,-74,16,4,-4,1]|PARI-bnrclassfield-Q(sqrt5)-m40|residual witness for G/O5(G); H = M16, Gal(K/Q(sqrt5)) = C4 x C2; expect b_witness = b_T
+20T396|disc|[15625,0,-37500,0,40500,0,-23000,0,8075,0,-1800,0,260,0,-20,0,1]|PARI-bnrclassfield-Q(sqrt-5)-m40|residual witness for G/O5(G); H = QD16, Gal(K/Q(sqrt5)) = D8; expect b_witness = b_T
+20T397|disc|[111045689000000,-171736784000000,95714448000000,-18991071640000,-1939992521000,1253116572000,-76821581400,-26955558320,3083021051,283142072,-42555092,-1642576,281220,5424,-872,-8,1]|PARI-bnrclassfield-Q(sqrt5)-m3280|residual witness for G/O5(G); H = Q16, Gal(K/Q(sqrt5)) = C8; expect b_witness = b_T

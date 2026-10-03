@@ -39,4 +39,5 @@ verdict?).
 
 `test_witness.m` checks witness-field verification (`lib/witness_body.m`)
 on two small fields with hand-known answers (6T5 = C3 wr C2 containing
-Q(sqrt -3), and S3 with no cyclotomic part) and on a deliberately wrong label.
+Q(sqrt -3), and S3 with no cyclotomic part) and on a deliberately wrong label; with `slow:=1` also two residual witnesses
+(20T397, 20T396: degree-16 fields for G/O_5(G)).
