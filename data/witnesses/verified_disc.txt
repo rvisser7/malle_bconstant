@@ -6,3 +6,16 @@ label|b_witness|exact|b_M|b_T|survivors|source
 20T386|3|1|2|3|1|PARI-bnrclassfield-Q(sqrt5)-m40
 20T396|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt-5)-m40
 20T397|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5)-m3280
+30T1417|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5)-m145
+30T1418|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5)-m145
+30T2277|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5)-m145
+30T2278|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5)-m145
+30T3733|4|1|3|4|1|PARI-bnrclassfield-Q(sqrt5)-m145
+30T3743|4|1|3|4|1|PARI-bnrclassfield-Q(sqrt5)-m145
+20T479|4|1|3|4|2|PARI-bnrclassfield-Q(zeta5)-m20
+20T508|3|1|2|3|1|PARI-bnrclassfield-Q(sqrt5,i)-m40
+30T2563|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5,i)-m40
+34T20|3|1|2|3|1|PARI-bnrclassfield-Q(sqrt17)-m4539
+26T34|3|0|2|7|2|PARI-Q8/Q(sqrt13)-m221-times-cubic-of-Q(zeta13)
+34T34|3|0|2|9|4|PARI-bnrclassfield-Q(i)-m17-cyclic16
+34T33|3|1|2|3|1|PARI-bnrclassfield-Q(sqrt2)-m136-cyclic16
