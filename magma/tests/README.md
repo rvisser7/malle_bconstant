@@ -9,6 +9,7 @@ Run from `magma/`, not from here:
     magma -b tests/test_gpiphi_pruning.m
     magma -b tests/test_layer_allowed.m
     magma -b tests/test_gar.m
+    magma -b tests/test_witness.m
     magma -b tests/run_disc_tests.m
     magma -b tests/run_prp_tests.m
 
@@ -35,3 +36,7 @@ bound?), `../diagnose_supplements_*.m` (what would the experimental
 supplement certificate add?) and `../diagnose_marking_*.m` (could the one
 unverified part of the p = 2 Demushkin marking in `wild_prop.m` move any
 verdict?).
+
+`test_witness.m` checks witness-field verification (`lib/witness_body.m`)
+on two small fields with hand-known answers (6T5 = C3 wr C2 containing
+Q(sqrt -3), and S3 with no cyclotomic part) and on a deliberately wrong label.

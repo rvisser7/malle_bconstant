@@ -14,6 +14,8 @@ magma/
 ├── verdicts_prp.m           per-pair verdict report, prp ordering
 ├── inspect_stalled.m        diagnostic: why did a b_W bracket not collapse?
 ├── why_no_candidates.m      diagnostic: dump the tower's candidate table
+├── verify_witnesses_disc.m  verify data/witnesses/witnesses.txt, disc ordering
+├── verify_witnesses_prp.m   verify data/witnesses/witnesses.txt, prp ordering
 ├── tests/                   see tests/README.md
 └── lib/
     ├── records.m                record formats (EmbeddingProb, ...)
@@ -37,7 +39,8 @@ magma/
     ├── prp/
     │   ├── orbits.m             keep every non-identity class
     │   └── fullcheck.m          FullCheck Phase 1 for prp
-    └── driver.m                 machine-readable CLI driver
+    ├── driver.m                 machine-readable CLI driver
+    └── witness_body.m           witness fields: K~ cap Q(mu_d), the pair, b
 ```
 
 ## How it works
@@ -94,6 +97,13 @@ certifies. Picking one leaf in advance can only lose certificates, since which
 residual a certificate can handle does not follow from its size; offering all of
 them chooses nothing and so loses nothing. No case in the current data is known
 to require it, and the cost is bounded by `Cap` in `SplitReductionLeaves`.
+
+**Witness fields.** Independently of the certificates, a number field whose
+Galois closure K~ has group G and meets Q(mu_d) in exactly F proves
+b_W >= b(pi, phi) for the pair it realises, with exact intersection, so
+without README assumption 3. Candidates live in `data/witnesses/witnesses.txt`;
+`verify_witnesses_*.m` recomputes everything about them and `run_parallel.py`
+raises L to the best verified witness. See `data/witnesses/README.md`.
 
 **Upper.** `BWupperLocal` is the largest `b(pi, phi)` over pairs *not proven
 locally obstructed*.

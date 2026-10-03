@@ -32,6 +32,12 @@ Mismatches are appended to --mismatch-log as they are found, not at the end of
 the run, so an interrupted verify pass still leaves a usable record. Pair that
 with --quiet to suppress the per-chunk progress chatter.
 
+Verified witness fields (data/witnesses/verified_<ordering>.txt, see
+data/witnesses/README.md) are applied to every computed row: the lower bound
+becomes max(L, b_witness), and a witness that contradicts the computation is
+reported as a conflict and the row is not written.  --no-witnesses disables
+this.
+
 All of the mathematics lives in magma/ -- see magma/README.md. This script
 knows only two things about it: how to invoke an entry point, and how to turn
 (b_M, b_T, BW_lower, BW_upper) into four column values.
@@ -294,6 +300,65 @@ def parse_outfile(outfile):
     return results, errors, seconds
 
 
+def load_witnesses(path):
+    """Read a verified-witness file (data/witnesses/verified_<ordering>.txt,
+    written by magma/verify_witnesses_<ordering>.m).
+
+    Returns (best, errors):
+      best:   label -> (b_witness, b_M, b_T, exact, source), keeping the
+              witness with the largest b_witness for each label;
+      errors: label -> list of Magma error messages.
+
+    A missing file just means no witnesses.  Lines that do not parse, or that
+    were cut off mid-write, are skipped.
+    """
+    best, errors = {}, defaultdict(list)
+    if not os.path.exists(path):
+        return best, errors
+    with open(path, encoding="utf-8") as fh:
+        for raw in fh:
+            if not raw.endswith("\n"):
+                continue
+            ln = raw.strip()
+            if not ln or ln.startswith("#") or ln.startswith("label|"):
+                continue
+            parts = ln.split("|")
+            label = parts[0]
+            if len(parts) >= 2 and parts[1] == "ERROR":
+                errors[label].append("|".join(parts[2:]))
+                continue
+            if len(parts) < 7:
+                continue
+            try:
+                bw, exact, bM, bT = (int(x) for x in parts[1:5])
+            except ValueError:
+                continue
+            if label not in best or bw > best[label][0]:
+                best[label] = (bw, bM, bT, bool(exact), parts[6])
+    return best, errors
+
+
+def apply_witness(label, bM, bT, lo, up, witnesses):
+    """Raise the lower bound with a verified witness field, if there is one.
+
+    Returns (lo, conflict): the new lower bound, and None or a description of
+    why the witness cannot be right together with this computation (it
+    disagrees on b_M or b_T, or exceeds the upper bound).  A witness only
+    ever moves lo; it never touches up.
+    """
+    w = witnesses.get(label)
+    if w is None:
+        return lo, None
+    bw, wbM, wbT, _, src = w
+    if (wbM, wbT) != (bM, bT):
+        return lo, (f"{label}  witness ({src}) has b_M={wbM}, b_T={wbT}; "
+                    f"computed b_M={bM}, b_T={bT}")
+    if bw > up:
+        return lo, (f"{label}  witness ({src}) proves b_W >= {bw}, but the "
+                    f"computed upper bound is {up}")
+    return max(lo, bw), None
+
+
 def run_chunk(args):
     """Run one chunk.  Returns (n, results, errors, seconds, unfinished,
     timed_out).
@@ -408,6 +473,14 @@ def main():
                     help="where to APPEND per-group Magma errors and groups "
                          "that timed out on their own "
                          "(default: <repo>/bconstant_errors.log)")
+    ap.add_argument("--witness-dir",
+                    default=os.path.join(REPO_ROOT, "data", "witnesses"),
+                    help="directory holding verified_<ordering>.txt "
+                         "(default: <repo>/data/witnesses)")
+    ap.add_argument("--no-witnesses", action="store_true",
+                    help="ignore verified witness fields; by default every "
+                         "computed row's lower bound is raised to the best "
+                         "verified witness for its label")
     ap.add_argument("--dry-run", action="store_true",
                     help="just report what's missing; don't call Magma")
     ap.add_argument("--quiet", action="store_true",
@@ -485,6 +558,15 @@ def main():
     entry_path = os.path.join(args.magma_dir, entry)
     if not args.dry_run and not os.path.exists(entry_path):
         sys.exit(f"error: Magma entry point not found: {entry_path}")
+
+    witnesses = {}
+    if not args.no_witnesses:
+        wpath = os.path.join(args.witness_dir, f"verified_{args.ordering}.txt")
+        witnesses, werrors = load_witnesses(wpath)
+        if witnesses or werrors:
+            print(f"[wit ] {len(witnesses)} verified witness label(s) from {wpath}"
+                  + (f"; {len(werrors)} label(s) with verification ERRORs, "
+                     f"ignored" if werrors else ""))
 
     degrees = parse_degrees(args.degrees)
     workdir = os.path.abspath(
@@ -651,8 +733,19 @@ def main():
 
                     st = state[n]
                     for i, (bM, bT, lo, up) in results.items():
-                        vals = b_values(bM, bT, lo, up)
                         row = st["idx_to_row"][i]
+                        lo, wconflict = apply_witness(f"{n}T{i}", bM, bT, lo, up,
+                                                      witnesses)
+                        if wconflict is not None:
+                            # A verified field contradicts this computation.
+                            # One of the two is wrong; write nothing.
+                            tally["witness_conflict"] += 1
+                            mismatches.append(wconflict)
+                            log_mismatch("WITNESS CONFLICT " + wconflict)
+                            print(f"[WITNESS CONFLICT, not written] {wconflict}",
+                                  flush=True)
+                            continue
+                        vals = b_values(bM, bT, lo, up)
 
                         if args.verify:
                             old = [row[off] for off in target_offsets]
@@ -715,6 +808,11 @@ def main():
     finally:
         if mlog[0] is not None:
             mlog[0].close()
+
+    if tally["witness_conflict"]:
+        print("=" * 60)
+        print(f"{tally['witness_conflict']} row(s) contradicted a verified witness "
+              f"field and were NOT written; see {args.mismatch_log}.")
 
     if args.retry_unresolved:
         print("=" * 60)
