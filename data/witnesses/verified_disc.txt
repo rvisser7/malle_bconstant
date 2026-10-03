@@ -1,0 +1,8 @@
+label|b_witness|exact|b_M|b_T|survivors|source
+6T5|2|1|1|2|1|constructed
+20T105|3|1|2|3|1|PARI-bnrclassfield-Q(sqrt5)-m145
+20T111|3|1|2|3|1|PARI-bnrclassfield-Q(sqrt5)-m145
+20T390|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5)-m145
+20T386|3|1|2|3|1|PARI-bnrclassfield-Q(sqrt5)-m40
+20T396|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt-5)-m40
+20T397|2|1|1|2|1|PARI-bnrclassfield-Q(sqrt5)-m3280
