@@ -12,14 +12,16 @@
 // prevent.
 //
 // THE TWO BOUNDS.
-//   BWlowerSplit  = max b(pi,phi) over pairs PROVEN properly solvable.
-//                   Starts at b_M: see the assumption note below.
-//   BWupperLocal  = max b(pi,phi) over pairs not PROVEN locally obstructed.
+//   BWlowerSplit  = max of the standing b_M floor, any verified KnownLower,
+//                   and b(pi,phi) over pairs PROVEN properly solvable.
+//   BWupperLocal  = max b(pi,phi) over pairs not PROVEN locally obstructed,
+//                   with the same verified KnownLower as a fallback floor.
 // Wang's b_W lies in [BWlowerSplit, BWupperLocal], and is known exactly when
 // they meet.
 //
-// STANDING ASSUMPTION, b_W >= b_M.  Both bounds start at b_M rather than at
-// the certified value for the trivial pair, and the threshold tests below
+// STANDING ASSUMPTION, b_W >= b_M.  In the absence of a verified field
+// witness both bounds start at b_M rather than at the certified value for the
+// trivial pair, and the threshold tests below
 // mean the trivial pair is never sent to CertifyAdmissible.  For the trivial
 // pair (B = 1) proper solvability is literally the inverse Galois problem
 // for G over Q, which we do not attempt.  So every number here is
@@ -50,6 +52,9 @@
 // 0, the default, reproduces the published behaviour exactly.
 // MaxQuotients is passed to the quotient-obstruction search; 0 means
 // exhaustive, while 60 is the production default.
+// KnownLower is an externally VERIFIED witness lower bound.  Supplying it
+// moves both the initial lower floor and the fallback upper floor, so Phase 2
+// never spends time on b-strata that cannot change the answer.
 //
 // DIAGNOSTIC FIELDS.  undetermined_local is now 0 or 1: whether the pair
 // that fixed BWupperLocal was admitted on an UNDETERMINED verdict (if 0, the
@@ -59,17 +64,29 @@
 // depend on Gpiphi's enumeration order; now they do not.
 
 BWBoundsFromPairs := function(
-    d, evaluated_pairs, bM, bT, policy : SupplementDepth := 0, MaxQuotients := 60
+    d, evaluated_pairs, bM, bT, policy : SupplementDepth := 0, MaxQuotients := 60,
+                                             KnownLower := 0
 )
-    BWlowerSplit := bM;
-    BWupperLocal := bM;
+    if KnownLower lt 0 or KnownLower gt bT then
+        error Sprintf("KnownLower = %o is outside [0,b_T=%o]", KnownLower, bT);
+    end if;
+
+    // A verified field witness is a genuine lower bound, not merely a
+    // post-processing hint.  Feeding it in here lets the descending-b search
+    // skip every pair at or below that value and makes b_witness = b_T an
+    // immediate exact answer.  The upper bound starts at the same floor:
+    // after every larger b-stratum has been proved obstructed, the witness
+    // itself shows that the remaining maximum is at least KnownLower.
+    lowerFloor := Max(bM, KnownLower);
+    BWlowerSplit := lowerFloor;
+    BWupperLocal := lowerFloor;
     splitCandidates := [];
     localCandidates := [];
     undetermined := 0;
     centralStalled := 0;
 
-    if bM ge bT then
-        return bM, bM, splitCandidates, localCandidates, undetermined, centralStalled;
+    if lowerFloor ge bT then
+        return bT, bT, splitCandidates, localCandidates, undetermined, centralStalled;
     end if;
 
     sound := policy`name eq "sound";
@@ -119,6 +136,8 @@ BWBoundsFromPairs := function(
                     reduced_G_order   := #ebp1`G,
                     reduced_Ker_order := #Kernel(ebp1`pi),
                     certificate       := "",
+                    certificate_kind  := "",
+                    proof_scope       := "upper_only",
                     local_verdict     := v
                 >);
             elif sound then
@@ -126,8 +145,9 @@ BWBoundsFromPairs := function(
             end if;
         end if;
 
-        autoSolved, why, ebp1 := CertifyAdmissible(ebp, d : Policy := policy, Raw := raw,
-                                                   SupplementDepth := SupplementDepth);
+        autoSolved, why, ebp1, certKind, proofScope := CertifyAdmissibleDetailed(
+            ebp, d : Policy := policy, Raw := raw, SupplementDepth := SupplementDepth
+        );
         if autoSolved then
             BWlowerSplit := bval_int;
             Append(~splitCandidates, rec< FullCheckCandidateFormat |
@@ -140,6 +160,8 @@ BWBoundsFromPairs := function(
                 reduced_G_order   := #ebp1`G,
                 reduced_Ker_order := #Kernel(ebp1`pi),
                 certificate       := why,
+                certificate_kind  := certKind,
+                proof_scope       := proofScope,
                 local_verdict     := LocalVerdictUnknown
             >);
             break;   // sorted: nothing later can raise either bound

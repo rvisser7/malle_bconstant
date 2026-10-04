@@ -94,13 +94,21 @@ CertificateChain := [*
 // tower.  The X-problems are SUBproblems, not quotients: insolvability does
 // NOT pass from them to G1, which is why they are only ever used here, to
 // raise the lower bound, and never in LocalVerdictWithQuotients.
-CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false,
-                                       SupplementDepth := 0)
+// Detailed form used by Phase 2.  In addition to the historical three
+// return values it reports a machine-readable certificate kind and proof
+// scope.  All certificates in this file prove PROPER LIFTABILITY only; they
+// do not by themselves prove Wang's exact-intersection condition.  Verified
+// field witnesses are tracked separately by FullCheck as proof_scope =
+// "exact_intersection".
+CertifyAdmissibleDetailed := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false,
+                                               SupplementDepth := 0)
     towerRaw := Raw;
     if Type(towerRaw) eq BoolElt then towerRaw := SplitTowerRaw(ebp); end if;
     leaves, fullySplit := SplitReductionLeaves(ebp : Raw := towerRaw);
     if fullySplit then
-        return true, "split tower (nilpotent / odd / GAR layers) to trivial kernel", leaves[1];
+        return true,
+               "split tower (nilpotent / odd / GAR layers) to trivial kernel",
+               leaves[1], "split_tower", "lift";
     end if;
 
     best := leaves[1];
@@ -118,7 +126,7 @@ CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := fals
                        Sprintf("leaf %o of %o (#G = %o, #Ker = %o), %o: %o",
                                k, #leaves, #ebp1`G, #Kernel(ebp1`pi),
                                entry[1], why),
-                       ebp1;
+                       ebp1, entry[1], "lift";
             end if;
             if k eq 1 then
                 reasons := reasons cat entry[1] cat ": " cat why cat "; ";
@@ -148,18 +156,27 @@ CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := fals
                 subprob := rec< EmbeddingProb |
                     B := ebp1`B, G := X, C := ebp1`C, f := ebp1`f,
                     pi := piX, phi := ebp1`phi, d := ebp1`d >;
-                ok, why, _ := $$(subprob, d : Policy := Policy,
-                                 SupplementDepth := SupplementDepth - 1);
+                ok, why, _, subkind, _ := $$(subprob, d : Policy := Policy,
+                                             SupplementDepth := SupplementDepth - 1);
                 if ok then
                     return true,
                            Sprintf("leaf %o of %o (#G = %o, #Ker = %o), supplement "
                                    cat "of Fit(Ker) (#X = %o, #Fit = %o): %o",
                                    k, #leaves, #G1, #N1, #X, #F, why),
-                           ebp1;
+                           ebp1, "supplement/" cat subkind, "lift";
                 end if;
             end for;
         end for;
         reasons := reasons cat "; no supplement certified";
     end if;
-    return false, reasons, best;
+    return false, reasons, best, "", "";
+end function;
+
+// Backwards-compatible API used by diagnostics and older tests.
+CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false,
+                                       SupplementDepth := 0)
+    ok, why, ebp1, _, _ := CertifyAdmissibleDetailed(
+        ebp, d : Policy := Policy, Raw := Raw, SupplementDepth := SupplementDepth
+    );
+    return ok, why, ebp1;
 end function;

@@ -48,7 +48,7 @@ ReportVerdicts := procedure(n, i)
         v, why_v, reports := LocalVerdictWithQuotients(ebp, DefaultLocalPolicy);
         vdirect := LocalVerdict(ebp, DefaultLocalPolicy);
         vlegacy := LocalVerdict(ebp, LegacyLocalPolicy);
-        ok, why, ebp1 := CertifyAdmissible(ebp, d);
+        ok, why, ebp1, certKind, proofScope := CertifyAdmissibleDetailed(ebp, d);
 
         printf "\n  pair %o: b(pi,phi) = %o, #B = %o, #Ker(pi) = %o\n",
                j, b, #ebp`B, #Kernel(ebp`pi);
@@ -62,7 +62,9 @@ ReportVerdicts := procedure(n, i)
         end for;
         printf "    residual: #G = %o, #Ker = %o, central = %o\n",
                #ebp1`G, #Kernel(ebp1`pi), IsCentralResidual(ebp1);
-        printf "    certificate: %o\n", ok;
+        printf "    certificate: %o", ok;
+        if ok then printf "  kind=%o scope=%o", certKind, proofScope; end if;
+        printf "\n";
         printf "      %o\n", why;
     end for;
 

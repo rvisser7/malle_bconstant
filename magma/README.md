@@ -104,6 +104,20 @@ residual a certificate can handle does not follow from its size; offering all of
 them chooses nothing and so loses nothing. No case in the current data is known
 to require it, and the cost is bounded by `Cap` in `SplitReductionLeaves`.
 
+**Witness-aware Phase 2.** Verified witnesses are now fed into Phase 2 *before* the
+local/certificate search.  If a witness proves `b_W >= L`, every pair with
+`b(pi,phi) <= L` is skipped, and `L = b_T` returns immediately.  The witness's
+stored `b_M,b_T` are checked against the freshly recomputed Phase-1 values
+before they are allowed to prune anything.
+
+The `FullCheckResultFormat` also separates provenance: `BW_lower_lift` is the
+best lower bound backed by an actual proper-lift certificate or witness,
+`BW_lower_exact` is the verified-field (exact-intersection) lower bound, and
+`lower_uses_bM_assumption` records whether the published lower floor still
+relies on the standing `b_W >= b_M` assumption.  Candidate certificates carry
+`certificate_kind` and `proof_scope` fields in addition to the human-readable
+message.
+
 **Witness fields.** Independently of the certificates, a number field whose
 Galois closure K~ has group G and meets Q(mu_d) in exactly F proves
 b_W >= b(pi, phi) for the pair it realises, with exact intersection, so

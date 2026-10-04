@@ -46,7 +46,7 @@ def verified_path(ordering, witness_dir=WITNESS_DIR):
 
 def classify(stored, w):
     """stored = (b_M, b_T, wang, status) strings from the data file;
-    w = (b_witness, b_M, b_T, exact, source).  Returns (verdict, detail)."""
+    w = (b_witness, b_M, b_T, identification_exact, source).  Returns (verdict, detail)."""
     bw, wbM, wbT, _, _ = w
     sM, sT, sW, _ = stored
     if sM == NULL or sT == NULL:

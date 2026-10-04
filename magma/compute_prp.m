@@ -50,8 +50,13 @@ if assigned n then
     else
         indices := [1 .. NumberOfTransitiveGroups(n_int)];
     end if;
-    ComputeIndices(n_int, indices, out);
+    if assigned knownlowerfile then
+        known := ReadKnownLowers(knownlowerfile);
+        ComputeIndices(n_int, indices, out : KnownLowers := known);
+    else
+        ComputeIndices(n_int, indices, out);
+    end if;
 else
-    print "Error: no degree. Use: magma -b n:=<degree> [idxfile:=path] [outfile:=path] compute_prp.m";
+    print "Error: no degree. Use: magma -b n:=<degree> [idxfile:=path] [outfile:=path] [knownlowerfile:=path] compute_prp.m";
 end if;
 quit;

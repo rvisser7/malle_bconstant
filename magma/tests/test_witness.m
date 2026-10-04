@@ -57,6 +57,40 @@ end try;
 printf "  3T1  x^3-2 (wrong label): error raised = %o\n", raised;
 if not raised then failures +:= 1; end if;
 
+
+// Production verifier accepts the same field through a different transitive
+// representation of the SAME ABSTRACT group (M = 1).  Find a degree-6
+// transitive copy of S3 dynamically so the test does not hard-code the T-id.
+s3six := 0;
+for kk := 1 to NumberOfTransitiveGroups(6) do
+    if IsIsomorphic(TransitiveGroup(6, kk), Sym(3)) then
+        s3six := kk;
+        break;
+    end if;
+end for;
+if s3six eq 0 then
+    print "  no degree-6 transitive S3 found -- unexpected";
+    failures +:= 1;
+else
+    lab6 := Sprintf("6T%o", s3six);
+    b, exact, bM, bT, ns, why := VerifyAnyWitness(lab6, [-2,0,0,1]);
+    printf "  %o from cubic S3 field (alternate representation): b=%o b_M=%o b_T=%o (%o)\n",
+           lab6, b, bM, bT, why;
+    if b lt 0 or b gt bT or bM gt bT then failures +:= 1; end if;
+end if;
+
+// A verified witness can be injected before Phase 2.  6T5 has b_witness=b_T=2,
+// so no certificate search is needed and the result records exact-intersection
+// provenance from the witness rather than the standing b_M assumption.
+Rw := FullCheck(TransitiveGroup(6, 5) : KnownLower := 2, KnownBM := 1, KnownBT := 2);
+printf "  KnownLower fast path: BW=[%o,%o], exact lower=%o, assumption=%o\n",
+       Rw`BW_lower_split, Rw`BW_upper_local, Rw`BW_lower_exact,
+       Rw`lower_uses_bM_assumption;
+if <Rw`BW_lower_split, Rw`BW_upper_local, Rw`BW_lower_exact,
+    Rw`lower_uses_bM_assumption> ne <2,2,2,false> then
+    failures +:= 1;
+end if;
+
 // witnesses.txt is data, not executable Magma.
 parsed := WitnessParseCoeffs(" [4, 0, 0, -2, 0, 0, 1] ");
 printf "  coefficient parser: %o\n", parsed;

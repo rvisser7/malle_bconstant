@@ -33,10 +33,11 @@ the run, so an interrupted verify pass still leaves a usable record. Pair that
 with --quiet to suppress the per-chunk progress chatter.
 
 Verified witness fields (data/witnesses/verified_<ordering>.txt, see
-data/witnesses/README.md) are applied to every computed row: the lower bound
-becomes max(L, b_witness), and a witness that contradicts the computation is
-reported as a conflict and the row is not written.  --no-witnesses disables
-this.
+data/witnesses/README.md) are fed into Magma BEFORE Phase 2, so pairs with
+b(pi,phi) <= b_witness need not be tested at all (and b_witness=b_T returns
+immediately).  The witness's stored b_M,b_T are checked against fresh Phase 1
+before it can prune anything.  The merge step then checks the witness again as
+a defence-in-depth consistency check.  --no-witnesses disables all of this.
 
 All of the mathematics lives in magma/ -- see magma/README.md. This script
 knows only two things about it: how to invoke an entry point, and how to turn
@@ -355,7 +356,7 @@ def load_witnesses(path):
     written by magma/verify_witnesses_<ordering>.m).
 
     Returns (best, errors):
-      best:   label -> (b_witness, b_M, b_T, exact, source), keeping the
+      best:   label -> (b_witness, b_M, b_T, identification_exact, source), keeping the
               witness with the largest b_witness for each label;
       errors: label -> list of verification/staleness error messages.
 
@@ -404,11 +405,11 @@ def load_witnesses(path):
                         "present in witnesses.txt for this ordering")
                     continue
             try:
-                bw, exact, bM, bT = (int(x) for x in parts[1:5])
+                bw, identification_exact, bM, bT = (int(x) for x in parts[1:5])
             except ValueError:
                 continue
             if label not in best or bw > best[label][0]:
-                best[label] = (bw, bM, bT, bool(exact), parts[6])
+                best[label] = (bw, bM, bT, bool(identification_exact), parts[6])
     return best, errors
 
 
@@ -443,7 +444,7 @@ def run_chunk(args):
     re-queues them one per chunk, so one slow group cannot take others down
     with it).
     """
-    n, indices, workdir, magma, entry, magma_dir, timeout = args
+    n, indices, workdir, magma, entry, magma_dir, timeout, known_lowers = args
     tag = f"{n}_{indices[0]}_{indices[-1]}_{len(indices)}"
     idxfile = os.path.join(workdir, f"idx_{tag}.txt")
     outfile = os.path.join(workdir, f"out_{tag}.txt")
@@ -451,6 +452,13 @@ def run_chunk(args):
         f.write(" ".join(map(str, indices)))
     if os.path.exists(outfile):
         os.remove(outfile)
+
+    knownlowerfile = None
+    if known_lowers:
+        knownlowerfile = os.path.join(workdir, f"known_{tag}.txt")
+        with open(knownlowerfile, "w", encoding="utf-8") as fh:
+            for i, bw, bM, bT in known_lowers:
+                fh.write(f"{i}|{bw}|{bM}|{bT}\n")
 
     # cwd = magma/ so that the `load "lib/..."` lines in the entry point
     # resolve.  idxfile/outfile are absolute, so they are unaffected.
@@ -460,7 +468,10 @@ def run_chunk(args):
     # there forever printing ">"; with stdin closed it hits EOF and exits, so
     # the error surfaces here instead of hanging the whole pool.
     cmd = [magma, "-b", f"n:={n}",
-           f"idxfile:={idxfile}", f"outfile:={outfile}", entry]
+           f"idxfile:={idxfile}", f"outfile:={outfile}"]
+    if knownlowerfile is not None:
+        cmd.append(f"knownlowerfile:={knownlowerfile}")
+    cmd.append(entry)
     timed_out = False
     proc = None
     try:
@@ -552,9 +563,9 @@ def main():
                     help="directory holding verified_<ordering>.txt "
                          "(default: <repo>/data/witnesses)")
     ap.add_argument("--no-witnesses", action="store_true",
-                    help="ignore verified witness fields; by default every "
-                         "computed row's lower bound is raised to the best "
-                         "verified witness for its label")
+                    help="ignore verified witness fields; by default the best "
+                         "verified witness is fed into Magma before Phase 2 "
+                         "and is also checked again when the row is merged")
     ap.add_argument("--dry-run", action="store_true",
                     help="just report what's missing; don't call Magma")
     ap.add_argument("--quiet", action="store_true",
@@ -726,7 +737,18 @@ def main():
     mode = "VERIFY (nothing will be written)" if args.verify else "fill"
     print(f"\nLaunching {len(tasks)} chunks on {args.workers} workers "
           f"[{mode}]\n(scratch: {workdir})\n" + "=" * 60, flush=True)
-    payloads = [(n, c, workdir, args.magma, entry, args.magma_dir, args.timeout)
+    def known_lower_rows(n, chunk):
+        rows = []
+        for i in chunk:
+            w = witnesses.get(f"{n}T{i}")
+            if w is None:
+                continue
+            bw, wbM, wbT, _, _ = w
+            rows.append((i, bw, wbM, wbT))
+        return rows
+
+    payloads = [(n, c, workdir, args.magma, entry, args.magma_dir, args.timeout,
+                 known_lower_rows(n, c))
                 for (n, c) in tasks]
     done_chunks = defaultdict(int)
     n_failed = [0]                # so the first failure can be shown in full
@@ -784,7 +806,8 @@ def main():
                     # one per chunk, so whichever one is slow times out alone.
                     if unfinished and len(chunk) > 1:
                         for i in unfinished:
-                            q = (n, [i]) + tuple(p[2:])
+                            one_known = [r for r in p[7] if r[0] == i]
+                            q = (n, [i], p[2], p[3], p[4], p[5], p[6], one_known)
                             futs[ex.submit(run_chunk, q)] = q
                         expected[n] += len(unfinished)
                         print(f"[requ] degree {n}: {len(unfinished)} unfinished "

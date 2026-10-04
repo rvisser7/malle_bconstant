@@ -25,8 +25,11 @@
 // (inversion on B) . phi always survive together; the reported bound is the
 // minimum of b over the survivors, which is valid whichever one is true.
 //
-// RESIDUAL WITNESSES.  A polynomial whose degree differs from n is read as a
-// witness for a QUOTIENT G/M, M normal in G, with M peelable by a chain of
+// QUOTIENT / ALTERNATE-REPRESENTATION WITNESSES.  When a polynomial does not
+// realise the target nTk permutation representation directly, it is treated as
+// a witness for a QUOTIENT G/M, including M = 1.  Thus a field with the same
+// ABSTRACT Galois group in a different transitive representation can still be
+// a full witness for nTk.  For M > 1, M must be peelable by a chain of
 // admissible split-tower layers (nilpotent and complemented, odd with the
 // mu(K) condition and complemented, or GAR), each taken in the quotient by
 // the previous ones.  Any proper
@@ -183,25 +186,20 @@ WitnessCyclotomicPart := function(G, S, d)
     return N0, res;
 end function;
 
-// Verify one witness.  Returns
+// Verify one full witness after its proven Galois group has already been
+// computed.  This fast path is used when the polynomial realises exactly the
+// target transitive representation.  Returns
 //   b       lower bound for b_W proven by this field
-//   exact   true if every surviving identification gives the same b
+//   identification_exact  true if every surviving identification gives the same b
 //   bM, bT  recomputed from the field's own Galois group
 //   nsurv   number of surviving pairs
 //   msg     a short description
-VerifyWitness := function(label, coeffs : MaxPrimes := 300)
+VerifyWitnessDirectCore := function(label, f, G, S : MaxPrimes := 300)
     parts := Split(label, "T");
     if #parts ne 2 then error "bad label " cat label; end if;
     n := StringToInteger(parts[1]);
     k := StringToInteger(parts[2]);
 
-    f := Polynomial(Integers(), coeffs);
-    if Degree(f) ne n then
-        error Sprintf("polynomial has degree %o, label says %o", Degree(f), n);
-    end if;
-    if not IsIrreducible(f) then error "polynomial is reducible"; end if;
-
-    G, _, S := WitnessProvenGaloisGroup(f);
     k1, n1 := TransitiveGroupIdentification(G);
     if n1 ne n or k1 ne k then
         error Sprintf("Galois group is %oT%o, not %o", n1, k1, label);
@@ -231,7 +229,7 @@ VerifyWitness := function(label, coeffs : MaxPrimes := 300)
     surv := cands;
     l := 2;
     tested := 0;
-    while #surv gt 1 and #{ s[3] : s in surv } gt 1 and tested lt MaxPrimes do
+    while #surv gt 1 and #{ x[3] : x in surv } gt 1 and tested lt MaxPrimes do
         l := NextPrime(l);
         if d mod l eq 0 or disc mod l eq 0 or lc mod l eq 0 then continue; end if;
         tested +:= 1;
@@ -240,22 +238,38 @@ VerifyWitness := function(label, coeffs : MaxPrimes := 300)
         if #idx eq 0 then
             error Sprintf("no class of G has the cycle type of f mod %o -- bug", l);
         end if;
-        surv := [ s : s in surv |
-                  s[2]`phi((Integers(d) ! l) @@ s[2]`f)
-                      in { s[2]`pi(cls[i][3]) : i in idx } ];
+        surv := [ x : x in surv |
+                  x[2]`phi((Integers(d) ! l) @@ x[2]`f)
+                      in { x[2]`pi(cls[i][3]) : i in idx } ];
     end while;
     if #surv eq 0 then
         error "no pair is consistent with the Frobenius data -- convention bug?";
     end if;
 
-    bvals := { s[3] : s in surv };
+    bvals := { x[3] : x in surv };
     return Min(bvals), #bvals eq 1, bM, bT, #surv,
            Sprintf("[F:Q] = %o, %o of %o identifications survive %o primes",
                    Index(G, N0), #surv, #cands, tested);
 end function;
 
+// Historical direct API, kept for tests and interactive use.
+VerifyWitness := function(label, coeffs : MaxPrimes := 300)
+    parts := Split(label, "T");
+    if #parts ne 2 then error "bad label " cat label; end if;
+    n := StringToInteger(parts[1]);
+
+    f := Polynomial(Integers(), coeffs);
+    if Degree(f) ne n then
+        error Sprintf("polynomial has degree %o, label says %o", Degree(f), n);
+    end if;
+    if not IsIrreducible(f) then error "polynomial is reducible"; end if;
+
+    G, _, S := WitnessProvenGaloisGroup(f);
+    return VerifyWitnessDirectCore(label, f, G, S : MaxPrimes := MaxPrimes);
+end function;
+
 // ---------------------------------------------------------------------
-// Residual witnesses
+// Quotient / alternate-representation witnesses
 // ---------------------------------------------------------------------
 
 // All automorphisms of Gam, by closure over the generators of
@@ -383,8 +397,9 @@ WitnessQuotientKernelOK := function(G, M)
     return false, "not found by the depth-limited admissible tower search";
 end function;
 
-// Verify a residual witness: f defines a field whose Galois group Gam is a
-// quotient G/M of G = TransitiveGroup(n, k).  Same returns as VerifyWitness.
+// Verify a quotient witness: f defines a field whose Galois group Gam is a
+// quotient G/M of G = TransitiveGroup(n, k), with M = 1 allowed.  Same
+// returns as VerifyWitness.
 //
 // Every isomorphism alpha : Gam -> G/M gives a genuine proper G/M-solution
 // rho_alpha, so each alpha (and each admissible M) proves its own bound; the
@@ -392,15 +407,13 @@ end function;
 // N = q^-1(alpha(N0)), and phi is narrowed with Frobenius cycle types in Gam,
 // transported by alpha, exactly as in VerifyWitness; the bound for that alpha
 // is the minimum of b over the survivors.
-VerifyResidualWitness := function(label, coeffs : MaxPrimes := 300)
+VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
     parts := Split(label, "T");
+    if #parts ne 2 then error "bad label " cat label; end if;
     n := StringToInteger(parts[1]);
     k := StringToInteger(parts[2]);
     G := TransitiveGroup(n, k);
 
-    f := Polynomial(Integers(), coeffs);
-    if not IsIrreducible(f) then error "polynomial is reducible"; end if;
-    Gam, _, S := WitnessProvenGaloisGroup(f);
     if #G mod #Gam ne 0 then
         error Sprintf("Galois group has order %o, which does not divide #G = %o", #Gam, #G);
     end if;
@@ -479,12 +492,60 @@ VerifyResidualWitness := function(label, coeffs : MaxPrimes := 300)
         return 0, true, bM, bT, 0, "every realised kernel misses the minimal elements";
     end if;
     return best, bestExact, bM, bT, bestSurv, "residual witness " cat bestWhy;
+
 end function;
 
-// Process a witness file.  orderingName is "disc" or "prp"; rows marked
+// Historical residual API, kept for tests and interactive use.
+VerifyResidualWitness := function(label, coeffs : MaxPrimes := 300)
+    f := Polynomial(Integers(), coeffs);
+    if not IsIrreducible(f) then error "polynomial is reducible"; end if;
+    Gam, _, S := WitnessProvenGaloisGroup(f);
+    return VerifyQuotientWitnessCore(label, f, Gam, S : MaxPrimes := MaxPrimes);
+end function;
+
+// Unified production verifier.  A full witness is just the M = 1 case of a
+// quotient witness, but the direct path is much faster when the polynomial
+// already realises the target nTk permutation representation.  Otherwise we
+// fall back to the abstract quotient search, EVEN WHEN Degree(f) = n.  This
+// lets a field for a different transitive representation of the same abstract
+// group witness the target representation as well.
+VerifyAnyWitness := function(label, coeffs : MaxPrimes := 300)
+    parts := Split(label, "T");
+    if #parts ne 2 then error "bad label " cat label; end if;
+    n := StringToInteger(parts[1]);
+    k := StringToInteger(parts[2]);
+
+    f := Polynomial(Integers(), coeffs);
+    if not IsIrreducible(f) then error "polynomial is reducible"; end if;
+    Gam, _, S := WitnessProvenGaloisGroup(f);
+
+    sameRep := false;
+    if Degree(f) eq n then
+        try
+            k1, n1 := TransitiveGroupIdentification(Gam);
+            sameRep := n1 eq n and k1 eq k;
+        catch err
+            // If this permutation representation has no transitive-library
+            // identification, the abstract quotient path below is still valid.
+            sameRep := false;
+        end try;
+    end if;
+    if sameRep then
+        // Do not put the direct verification itself inside the try/catch: a
+        // genuine arithmetic/programming error there must be reported, not
+        // silently converted into an abstract-quotient fallback.
+        return VerifyWitnessDirectCore(label, f, Gam, S : MaxPrimes := MaxPrimes);
+    end if;
+
+    return VerifyQuotientWitnessCore(label, f, Gam, S : MaxPrimes := MaxPrimes);
+end function;
+
+// Process a witness file.  VerifyAnyWitness chooses the direct fast path or
+// the abstract quotient/M=1 path automatically; polynomial degree is not used
+// as a correctness criterion.  orderingName is "disc" or "prp"; rows marked
 // "both" are processed by either.
 VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
-    Write(outfile, "label|b_witness|exact|b_M|b_T|survivors|source|poly"
+    Write(outfile, "label|b_witness|identification_exact|b_M|b_T|survivors|source|poly"
           : Overwrite := true);
     lines := Split(Read(infile), "\n");
     for ln in lines do
@@ -506,14 +567,9 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
         msg := "";
         try
             coeffs := WitnessParseCoeffs(fields[3]);
-            nlab := StringToInteger(Split(label, "T")[1]);
-            if #coeffs - 1 eq nlab then
-                b, exact, bM, bT, nsurv, why := VerifyWitness(label, coeffs
-                                                              : MaxPrimes := MaxPrimes);
-            else
-                b, exact, bM, bT, nsurv, why := VerifyResidualWitness(label, coeffs
-                                                              : MaxPrimes := MaxPrimes);
-            end if;
+            b, exact, bM, bT, nsurv, why := VerifyAnyWitness(
+                label, coeffs : MaxPrimes := MaxPrimes
+            );
         catch err
             failed := true;
             msg := CleanForField(Sprint(err`Object));

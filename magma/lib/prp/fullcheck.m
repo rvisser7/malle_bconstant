@@ -57,15 +57,40 @@ EvaluatePairs := function(G)
 end function;
 
 FullCheck := function(
-    G : Policy := DefaultLocalPolicy, SupplementDepth := 0, MaxQuotients := 60
+    G : Policy := DefaultLocalPolicy, SupplementDepth := 0, MaxQuotients := 60,
+        KnownLower := 0, KnownBM := -1, KnownBT := -1
 )
     d, a, num_Smin, nPairs, bM, bT, evaluated_pairs := EvaluatePairs(G);
+
+    // A verified witness may be fed into Phase 2 before the expensive local
+    // and certificate search.  When its stored Phase-1 values are supplied,
+    // check them here so a stale/incompatible certificate can never alter the
+    // search.
+    if KnownLower gt 0 then
+        if KnownBM ge 0 and KnownBM ne bM then
+            error Sprintf("known witness has b_M=%o but Phase 1 computed %o", KnownBM, bM);
+        end if;
+        if KnownBT ge 0 and KnownBT ne bT then
+            error Sprintf("known witness has b_T=%o but Phase 1 computed %o", KnownBT, bT);
+        end if;
+        if KnownLower gt bT then
+            error Sprintf("known witness lower bound %o exceeds b_T=%o", KnownLower, bT);
+        end if;
+    end if;
+
 
     BWlowerSplit, BWupperLocal, splitCandidates, localCandidates,
         undetermined, centralStalled :=
             BWBoundsFromPairs(d, evaluated_pairs, bM, bT, Policy :
                               SupplementDepth := SupplementDepth,
-                              MaxQuotients := MaxQuotients);
+                              MaxQuotients := MaxQuotients,
+                              KnownLower := KnownLower);
+
+    certLower := KnownLower;
+    for c in splitCandidates do
+        if c`b_value gt certLower then certLower := c`b_value; end if;
+    end for;
+    exactLower := KnownLower;   // verified field witnesses certify exact intersection
 
     return rec< FullCheckResultFormat |
         group_order              := #G,
@@ -76,6 +101,10 @@ FullCheck := function(
         b_T                      := bT,
         BW_lower_split           := BWlowerSplit,
         BW_upper_local           := BWupperLocal,
+        BW_lower_lift            := certLower,
+        BW_lower_exact           := exactLower,
+        known_lower_input        := KnownLower,
+        lower_uses_bM_assumption := BWlowerSplit gt certLower,
         split_candidates         := splitCandidates,
         local_candidates         := localCandidates,
         undetermined_local       := undetermined,

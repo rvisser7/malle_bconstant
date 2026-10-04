@@ -60,14 +60,21 @@ survivors have the same b.
 
 **Limitation.** Cycle types cannot tell an element from its inverse, so
 phi and phi composed with inversion on B always survive together. For B of
-exponent > 2 the result can therefore be conservative (`exact = 0`). Pinning
-down the true identification would need actual Frobenius elements, not
-cycle types.
+exponent > 2 the result can therefore be conservative
+(`identification_exact = 0`). Pinning down the true identification would need
+more Frobenius information than the cycle type in the defining permutation
+representation (for example auxiliary resolvents).
 
-## Residual witnesses
+## Quotient and alternate-representation witnesses
 
-A polynomial whose degree is not n is read as a witness for a quotient of
-G = nTk.  `VerifyResidualWitness` (in `magma/lib/witness_body.m`)
+`VerifyAnyWitness` first uses the fast direct path when the polynomial realises
+exactly the target `nTk` permutation representation.  Otherwise it treats the
+field as a witness for a quotient `G/M`, **including `M = 1`**.  Consequently a
+field with the same abstract Galois group but a different degree/transitive
+representation can now witness `nTk` as well.
+
+The quotient path (implemented by `VerifyQuotientWitnessCore` in
+`magma/lib/witness_body.m`)
 
 1. computes Gam = Gal(f) and F = K~ cap Q(mu_d) for the d of G;
 2. runs over the normal subgroups M of G with G/M isomorphic to Gam such that
@@ -95,7 +102,7 @@ H of order 16. Each should verify to b_witness = b_T.
 
 ## Output format (`verified_*.txt`)
 
-    label|b_witness|exact|b_M|b_T|survivors|source|poly
+    label|b_witness|identification_exact|b_M|b_T|survivors|source|poly
     label|ERROR|message
 
 Here `poly` is the canonical coefficient vector that was actually verified.
@@ -126,10 +133,9 @@ both refuse a witness that disagrees.
 
 ## Where witnesses come from
 
-* The LMFDB, searched by degree and Galois group. For prp, b depends only on
-  the abstract group, but this pipeline still requires the stated nTk to
-  match, so a field of a different degree with the same abstract group is not
-  accepted yet.
+* The LMFDB, searched by degree and Galois group.  A field need not have the
+  same degree as the target `nTk`: the verifier may use it through the `M = 1`
+  abstract-group path (or through a genuine quotient `M > 1`).
 * Targeted constructions for solvable groups (class field theory over the
   relevant subfields). The file does not care how a field was found.
 
