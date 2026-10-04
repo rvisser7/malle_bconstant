@@ -38,29 +38,23 @@
 // This diagnostic finds every pair, with b above b_M, where p = 2 is wild
 // and phi(Frob_2) has order >= 4, reruns the p = 2 search for EVERY odd
 // residue t2 mod that order, and reports the pairs whose verdict depends on
-// t2.  None in the data means the open question cannot have moved anything.
+// t2.  Production sound-mode code now uses this same all-markings criterion
+// before returning a positive local certificate; this file remains useful for
+// locating the pairs on which the unresolved marking actually matters.
 
 MarkingSensitivityAtTwo := function(ebp)
     labels, cImages, bImages, IwildP, Dp := WildProPCyclotomicGeneratorData(ebp, 2);
     if #IwildP le 1 then return false, 0, [* *]; end if;   // not wild at 2
 
-    // wild_prop sets c2 = -cFrob and c1 = cMinus - 2 c2.
-    cFrob  := -cImages[2];
-    cMinus := cImages[1] + 2*cImages[2];
-    bF     := ebp`phi(cFrob);
-    o      := Order(bF);
+    o, variants := WildProPQ2MarkingVariants(ebp, cImages, bImages);
     if o le 2 then return false, o, [* *]; end if;
 
-    bMinus := ebp`phi(cMinus);
-    b3     := bImages[3];
     H, P, Kp := WildProPSylowTargetData(ebp, Dp, 2);
 
     res := [* *];
-    for t in [1 .. o - 1 by 2] do
-        b2 := t * bF;
-        b1 := bMinus - 2*b2;
-        ok := WildProPSolveQ2RelationInSylow(ebp, P, Kp, b1, b2, b3);
-        Append(~res, < t, ok >);
+    for V in variants do
+        ok := WildProPSolveQ2RelationInSylow(ebp, P, Kp, V[2], V[3], V[4]);
+        Append(~res, < V[1], ok >);
     end for;
     return true, o, res;
 end function;

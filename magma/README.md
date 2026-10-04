@@ -74,8 +74,10 @@ the disc ordering skips every `pi` whose kernel misses the minimal classes
 before forming `Kernel(pi)`. `GpiphiReference` is the old enumeration.
 
 The element-based `bpiphi`/`MinIndex` and `GpiphiReference` are kept as
-reference implementations; `tests/test_orbits_agree_*.m` and
-`tests/test_gpiphi_pruning.m` assert agreement pair by pair or value by value.
+reference implementations; `tests/test_orbits_agree_*.m` checks the orbit
+implementations, while `tests/test_gpiphi_pruning.m` compares the actual
+nonzero `(pi,phi)` pairs (not merely their multiset of `b`-values) with the
+reference enumeration.
 Use `bench_disc.m` / `bench_prp.m` to see which phase a slow group is actually
 slow in before optimising further. Phase 2 (the bracket) is
 identical and lives once, in `bw_phase2.m`.
@@ -88,7 +90,11 @@ never sent to the certificates (sound policy); the first certified pair fixes
 the lower bound and stops the loop. The split tower depends on `pi` only, so it
 is built once per `pi` (`SplitTowerRaw`) and passed to the certificates and the
 local-quotient scan through their `Raw` parameter. Inside the tower, states are
-cumulative kernels in the original group and each is expanded once.
+cumulative kernels in the original group. The memo records the largest
+remaining depth with which a state has been expanded, so reaching that state
+later by a shorter path can still expose additional certificates.
+`SplitTowerRaw` also records whether the search was exhaustive or was truncated
+by the depth/leaf cap.
 
 **Lower.** `BWlowerSplit` is the largest `b(pi, phi)` over pairs *proven properly
 solvable*. `split_tower.m` returns every dead end of the split tower,
@@ -128,14 +134,25 @@ prove only one direction:
   through `G_{Q_p}(p)`, which is checked; and whether a full local lift forces
   the pro-`p` problem to be solvable is not established.
 
+At `p = 2` there is one additional marking subtlety in the Demushkin
+presentation: the coefficient of the unramified generator is only known to be
+an odd 2-adic unit. The sound policy therefore accepts a positive pro-2 lift
+only when the relation is solvable for **every** admissible odd residue modulo
+the order of the Frobenius image. A marking-dependent success is `Unknown`, not
+`Yes`. `LegacyLocalPolicy` deliberately keeps the old single-marking behaviour
+for diagnostics.
+
 The upper bound excludes a pair only on a No, and a No is inherited from any
 quotient: if `M` is normal in `G` with `M` inside `Ker(pi)`, a solution of the pair
 pushes forward to a solution of the quotient problem, so an obstruction on the
 quotient obstructs the pair. Since passing to a quotient shrinks the kernel, it can
 move the tame test at `p` into its exact case, which is how 20T297 is decided.
-`LocalVerdictWithQuotients` tries the split residual first, then normal subgroups
-chosen to kill a prime that is currently undetermined. `central.m` fires only on an
-all-Yes. `LegacyLocalPolicy` reproduces the old both-ways-veto behaviour and
+`LocalVerdictWithQuotients` tries the split residual first, then ranks normal
+quotients by how many currently-undetermined primes they make exact, with the
+smallest residual kernel first. `MaxQuotients := 0` requests an exhaustive
+quotient scan; for example `FullCheck(G : MaxQuotients := 0)`. `central.m`
+fires only on an all-Yes. `LegacyLocalPolicy`
+reproduces the old both-ways-veto behaviour and
 exists only so that the diagnostics can measure how many published cells the
 correction moves. **Run `diagnose_disc.m` / `diagnose_prp.m` before recomputing any column.** When a
 group does move, `magma -b n:=<deg> i:=<idx> verdicts_disc.m` prints the verdict at

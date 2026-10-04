@@ -96,7 +96,9 @@ CertificateChain := [*
 // raise the lower bound, and never in LocalVerdictWithQuotients.
 CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := false,
                                        SupplementDepth := 0)
-    leaves, fullySplit := SplitReductionLeaves(ebp : Raw := Raw);
+    towerRaw := Raw;
+    if Type(towerRaw) eq BoolElt then towerRaw := SplitTowerRaw(ebp); end if;
+    leaves, fullySplit := SplitReductionLeaves(ebp : Raw := towerRaw);
     if fullySplit then
         return true, "split tower (nilpotent / odd / GAR layers) to trivial kernel", leaves[1];
     end if;
@@ -127,6 +129,9 @@ CertifyAdmissible := function(ebp, d : Policy := DefaultLocalPolicy, Raw := fals
     if #leaves gt 1 then
         reasons := reasons cat Sprintf("(and no certificate on any of the "
                                        cat "other %o leaves)", #leaves - 1);
+    end if;
+    if not SplitTowerSearchComplete(towerRaw) then
+        reasons := reasons cat "; split-tower search truncated by Depth/Cap";
     end if;
 
     if SupplementDepth gt 0 then

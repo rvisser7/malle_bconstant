@@ -83,7 +83,8 @@ end function;
 
 // Reference implementation: the pre-pruning enumeration over ALL subgroups
 // of AbG.  Not used in production; tests/test_gpiphi_pruning.m checks that
-// Gpiphi produces the same multiset of b-values.
+// Gpiphi produces the same actual nonzero (pi,phi)-pairs, not merely the same
+// multiset of b-values.
 GpiphiReference := function(G, d)
     C, f := MultiplicativeGroup(Integers(d));
     AbG, f_AbG := AbelianQuotient(G);

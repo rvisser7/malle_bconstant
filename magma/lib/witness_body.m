@@ -310,22 +310,61 @@ end function;
 // Is there a chain 1 = M_0 < M_1 < ... < M_r = M of normal subgroups of G
 // such that each M_i / M_(i-1) is an admissible layer of G / M_(i-1)?  Then
 // a proper G/M-solution climbs back to a proper G-solution one layer at a
-// time, exactly as in the split tower.  Largest first layer first; Depth
-// bounds the chain length.
-WitnessTowerReaches := function(G, M : Depth := 8)
-    if #M eq 1 then return true, ""; end if;
-    if Depth le 0 then return false, ""; end if;
-    Ls := [ R`subgroup : R in NormalSubgroups(G) | #R`subgroup gt 1 and R`subgroup subset M ];
+// time, exactly as in the split tower.
+//
+// The search is phrased in the ORIGINAL group, with K the cumulative subgroup
+// already peeled off.  As in split_tower.m, the memo stores the largest
+// remaining depth at which a K has been expanded, so reaching K later by a
+// shorter chain can still expose a witness tower.  The third return value says
+// whether a negative answer was exhaustive (true) or hit the depth limit
+// (false).
+WitnessTowerReachesFrom := function(G0, Mtarget, K, depth, seen)
+    if K eq Mtarget then return true, "", seen, true; end if;
+    if depth le 0 then return false, "", seen, false; end if;
+
+    if #K eq 1 then
+        GK := G0;
+        qK := IdentityHomomorphism(G0);
+        targetK := Mtarget;
+    else
+        GK, qK := quo< G0 | K >;
+        targetK := Mtarget @ qK;
+    end if;
+
+    Ls := [ R`subgroup : R in NormalSubgroups(GK)
+            | #R`subgroup gt 1 and R`subgroup subset targetK ];
     Sort(~Ls, func< X, Y | #Y - #X >);
+
+    complete := true;
+    anyAdmissible := false;
     for L in Ls do
-        ok, why := WitnessSingleLayer(G, L);
+        ok, why := WitnessSingleLayer(GK, L);
         if not ok then continue; end if;
-        if #L eq #M then return true, why; end if;
-        Q, q := quo< G | L >;
-        ok2, why2 := $$(Q, M @ q : Depth := Depth - 1);
-        if ok2 then return true, why cat ", " cat why2; end if;
+        anyAdmissible := true;
+
+        K1 := L @@ qK;
+        if K1 eq Mtarget then return true, why, seen, true; end if;
+
+        nextDepth := depth - 1;
+        if TowerSeenDepth(seen, K1) ge nextDepth then continue; end if;
+        seen := TowerRecordDepth(seen, K1, nextDepth);
+        ok2, why2, seen, childComplete := $$(
+            G0, Mtarget, K1, nextDepth, seen
+        );
+        if ok2 then return true, why cat ", " cat why2, seen, true; end if;
+        if not childComplete then complete := false; end if;
     end for;
-    return false, "";
+
+    if not anyAdmissible then return false, "", seen, true; end if;
+    return false, "", seen, complete;
+end function;
+
+WitnessTowerReaches := function(G, M : Depth := 16)
+    triv := sub< G | Id(G) >;
+    ok, why, seen, complete := WitnessTowerReachesFrom(
+        G, M, triv, Depth, [* <triv, Depth> *]
+    );
+    return ok, why, complete;
 end function;
 
 // May a proper G/M-solution be lifted to a proper G-solution with the same
@@ -336,9 +375,12 @@ WitnessQuotientKernelOK := function(G, M)
     if not (M subset DerivedSubgroup(G)) then
         return false, "M is not inside [G,G]: the lift could meet Q(mu_d) in more than F";
     end if;
-    ok, why := WitnessTowerReaches(G, M);
+    ok, why, complete := WitnessTowerReaches(G, M);
     if ok then return true, "tower layers " cat why; end if;
-    return false, "not reachable by admissible tower layers";
+    if complete then
+        return false, "not reachable by admissible tower layers";
+    end if;
+    return false, "not found by the depth-limited admissible tower search";
 end function;
 
 // Verify a residual witness: f defines a field whose Galois group Gam is a

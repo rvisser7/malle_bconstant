@@ -5,13 +5,13 @@
 //     magma -b tests/test_gpiphi_pruning.m      (run from magma/)
 //
 // Gpiphi now enumerates subgroups of AbG / e*AbG of index dividing #C, and
-// (disc) skips kernels missing Smin.  Neither may change the set of
-// b(pi, phi) values that matter.  For each group this compares, in both
-// orderings, the multiset of NONZERO b-values over Gpiphi's pairs with the
-// multiset over GpiphiReference's pairs (the old enumeration of every
-// subgroup of AbG), using the reference orbit counters on both sides so
-// that only the enumeration differs.  Zero b-values are exactly the pairs
-// the MinReps filter is allowed to drop.
+// (disc) skips kernels missing Smin.  Neither may change the actual
+// (pi,phi)-pairs that matter.  Comparing only the multiset of b-values is NOT
+// enough for Wang's constant: two different phi can have the same b(pi,phi)
+// but different liftability.  So this test compares the pairs themselves,
+// up to the canonical quotient isomorphism determined by their common kernel,
+// and also checks the associated NONZERO b-values.  Zero b-values are exactly
+// the pairs the MinReps filter is allowed to drop.
 
 load "lib/records.m";
 load "lib/embedding_problems.m";
@@ -42,6 +42,52 @@ PrpReference := function(ebp)
     return orbits;
 end function;
 
+// Find in ebp`C the cyclotomic element with a prescribed residue modulo d.
+// This avoids assuming that two independent calls to MultiplicativeGroup have
+// literally the same parent group.
+CyclotomicElementWithResidue := function(ebp, a)
+    d := ebp`d;
+    aa := a mod d;
+    for c in ebp`C do
+        if (IntegerRing()!ebp`f(c)) mod d eq aa then return c; end if;
+    end for;
+    error Sprintf("no cyclotomic element with residue %o mod %o", aa, d);
+end function;
+
+// SamePair(P,Q) means that P and Q have the same kernel N in G and that,
+// under the canonical isomorphism G/N -> G/N induced by the identity on G,
+// their cyclotomic quotient maps agree.  Concretely, for c in C_P choose any
+// x with pi_P(x)=phi_P(c), then require pi_Q(x)=phi_Q(c') where c' has the
+// same residue modulo d.  Equality on generators is enough.
+SamePair := function(P, Q)
+    if Kernel(P`pi) ne Kernel(Q`pi) then return false; end if;
+    for c in Generators(P`C) do
+        cQ := CyclotomicElementWithResidue(Q, IntegerRing()!P`f(c));
+        x := P`phi(c) @@ P`pi;
+        if Q`pi(x) ne Q`phi(cQ) then return false; end if;
+    end for;
+    return true;
+end function;
+
+// Compare two generic sequences of <ebp,b> as multisets of actual pairs.
+SamePairMultiset := function(A, B)
+    if #A ne #B then return false; end if;
+    used := {};
+    for x in A do
+        found := 0;
+        for j := 1 to #B do
+            if j in used then continue; end if;
+            if x[2] eq B[j][2] and SamePair(x[1], B[j][1]) then
+                found := j;
+                break;
+            end if;
+        end for;
+        if found eq 0 then return false; end if;
+        Include(~used, found);
+    end for;
+    return true;
+end function;
+
 CASES := [ <6,5>, <8,10>, <8,23>, <10,20>, <12,131>, <12,19>, <15,95>, <16,1192>, <20,27> ];
 failures := 0;
 
@@ -55,13 +101,19 @@ for c in CASES do
     _, reps, _, _ := MinIndexClasses(G);
     Tn := Gpiphi(G, d : MinReps := reps);
     To := GpiphiReference(G, d);
-    bn := [];
-    for ebp in Tn do _, b := bpiphi(ebp, Smin); if b ne 0 then Append(~bn, b); end if; end for;
-    bo := [];
-    for ebp in To do _, b := bpiphi(ebp, Smin); if b ne 0 then Append(~bo, b); end if; end for;
-    Sort(~bn); Sort(~bo);
-    if bn ne bo then
-        printf "  FAIL %oT%o disc: pruned %o vs reference %o\n", n, i, bn, bo;
+    An := [* *];
+    for ebp in Tn do
+        _, b := bpiphi(ebp, Smin);
+        if b ne 0 then Append(~An, < ebp, b >); end if;
+    end for;
+    Ao := [* *];
+    for ebp in To do
+        _, b := bpiphi(ebp, Smin);
+        if b ne 0 then Append(~Ao, < ebp, b >); end if;
+    end for;
+    if not SamePairMultiset(An, Ao) then
+        printf "  FAIL %oT%o disc: pruned/reference pair sets differ (%o vs %o)\n",
+               n, i, #An, #Ao;
         failures +:= 1;
     end if;
 
@@ -69,13 +121,19 @@ for c in CASES do
     e := Exponent(G);
     Tn := Gpiphi(G, e);
     To := GpiphiReference(G, e);
-    bn := [];
-    for ebp in Tn do b := PrpReference(ebp); if b ne 0 then Append(~bn, b); end if; end for;
-    bo := [];
-    for ebp in To do b := PrpReference(ebp); if b ne 0 then Append(~bo, b); end if; end for;
-    Sort(~bn); Sort(~bo);
-    if bn ne bo then
-        printf "  FAIL %oT%o prp: pruned %o vs reference %o\n", n, i, bn, bo;
+    An := [* *];
+    for ebp in Tn do
+        b := PrpReference(ebp);
+        if b ne 0 then Append(~An, < ebp, b >); end if;
+    end for;
+    Ao := [* *];
+    for ebp in To do
+        b := PrpReference(ebp);
+        if b ne 0 then Append(~Ao, < ebp, b >); end if;
+    end for;
+    if not SamePairMultiset(An, Ao) then
+        printf "  FAIL %oT%o prp: pruned/reference pair sets differ (%o vs %o)\n",
+               n, i, #An, #Ao;
         failures +:= 1;
     end if;
 

@@ -69,6 +69,22 @@ pi := q;
 cands := AdmissibleComplementedCandidates(G, Kernel(pi));
 Check("F21 x C3: largest candidate has order", #cands[1], 21, ~failures);
 
+// Search bookkeeping: hitting the depth limit is now recorded explicitly,
+// while the ordinary search proves this tower fully split.  The dummy C/f/phi
+// fields are unused by SplitTowerRaw; they only complete the EmbeddingProb
+// record.
+idQ := IdentityHomomorphism(Q);
+ebp := rec< EmbeddingProb |
+    B := Q, G := G, C := Q, f := idQ, pi := pi, phi := idQ, d := 1
+>;
+R0 := SplitTowerRaw(ebp : Depth := 0);
+Check("split tower: depth-0 search is incomplete",
+      SplitTowerSearchComplete(R0), false, ~failures);
+R := SplitTowerRaw(ebp);
+Check("split tower: F21 x C3 reaches trivial kernel", R[1], true, ~failures);
+Check("split tower: successful search is complete",
+      SplitTowerSearchComplete(R), true, ~failures);
+
 printf "test_layer_allowed: %o failures\n", failures;
 assert failures eq 0;
 print "test_layer_allowed: PASS";

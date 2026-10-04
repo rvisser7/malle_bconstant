@@ -37,6 +37,11 @@ supplement certificate add?) and `../diagnose_marking_*.m` (could the one
 unverified part of the p = 2 Demushkin marking in `wild_prop.m` move any
 verdict?).
 
+`test_gpiphi_pruning.m` compares the actual nonzero `(pi,phi)` pair sets, not
+only their `b`-values. `test_layer_allowed.m` also checks the split-tower
+search-completeness flag (a depth-0 truncation is incomplete, while a successful
+full reduction is complete).
+
 `test_witness.m` checks witness-field verification (`lib/witness_body.m`)
 on two small fields with hand-known answers (6T5 = C3 wr C2 containing
 Q(sqrt -3), and S3 with no cyclotomic part) and on a deliberately wrong label; with `slow:=1` also two residual witnesses

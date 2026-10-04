@@ -204,6 +204,52 @@ end function;
 
 
 /*****************************************************************************************
+    All admissible choices of the unresolved Q_2 marking parameter t_2.
+
+    The standard marking used below takes
+
+        b2 = -phi(Frob_2),
+
+    but the argument currently available only proves that the coefficient of
+    phi(Frob_2) is an odd 2-adic unit.  If bF = phi(Frob_2) has order o, the
+    possible images are therefore
+
+        b2 = t*bF,             t in (Z/oZ)^x,
+        b1 = bMinus - 2*b2,
+        b3 = phi(rec(-3)).
+
+    Since o is a power of 2, these are exactly the odd residues modulo o.
+    For o <= 2 they all give the same triple.
+
+    Returns o and a generic sequence of <t,b1,b2,b3>.
+*****************************************************************************************/
+
+WildProPQ2MarkingVariants := function(ebp, cImages, bImages)
+
+    // In the standard representative, c2 = -cFrob and
+    // c1 = cMinus - 2*c2.
+    cFrob  := -cImages[2];
+    cMinus := cImages[1] + 2*cImages[2];
+
+    bF     := ebp`phi(cFrob);
+    bMinus := ebp`phi(cMinus);
+    b3     := bImages[3];
+    o      := Order(bF);
+
+    ts := o le 2 select [ 1 ] else [ 1 .. o - 1 by 2 ];
+    variants := [* *];
+    for t in ts do
+        b2 := t*bF;
+        b1 := bMinus - 2*b2;
+        Append(~variants, < t, b1, b2, b3 >);
+    end for;
+
+    return o, variants;
+
+end function;
+
+
+/*****************************************************************************************
     Canonical p-primary projection of arithmetic Frobenius.
 
     Write d=p^e*m with (p,m)=1.  On the m-part arithmetic Frobenius is p.
@@ -604,7 +650,7 @@ end function;
     Detailed test at one prime.
 *****************************************************************************************/
 
-DetailedWildProPReportAtPrime := function(ebp, p)
+DetailedWildProPReportAtPrime := function(ebp, p : RobustQ2Marking := true)
 
     G := ebp`G;
 
@@ -684,9 +730,82 @@ DetailedWildProPReportAtPrime := function(ebp, p)
 
     end if;
 
+    // The standard t_2 = -1 marking is useful for diagnostics and for the
+    // LegacyLocalPolicy, but a sound POSITIVE certificate must not depend on
+    // the unresolved choice of odd unit t_2.  In robust mode we therefore
+    // require a solution for EVERY admissible odd residue modulo
+    // Order(phi(Frob_2)).  Failure of one variant is deliberately only a
+    // failure to exhibit a pro-2 lift; LocalVerdict keeps that direction
+    // Unknown under the sound policy.
+    if RobustQ2Marking then
+        o, variants := WildProPQ2MarkingVariants(ebp, cImages, bImages);
+        standardT := o le 2 select 1 else o - 1;
+        allOK := true;
+        failedT := [];
+        pairsTested := 0;
+        standardWitness := [];
+
+        for V in variants do
+            t := V[1];
+            ok, wit, tested := WildProPSolveQ2RelationInSylow(
+                ebp, P, Kp, V[2], V[3], V[4]
+            );
+            pairsTested +:= tested;
+            if t eq standardT and ok then standardWitness := wit; end if;
+            if not ok then
+                allOK := false;
+                Append(~failedT, t);
+            end if;
+        end for;
+
+        if allOK then
+            return rec< WildProPPrimeReportFormat |
+                p                    := p,
+                is_wild              := true,
+                source_description   := sourceDescription,
+                generator_labels     := labels,
+                C_generator_images   := cImages,
+                B_generator_images   := bImages,
+                wild_inertia_order   := #IwildP,
+                Dp_order             := #Dp,
+                local_preimage_order := #H,
+                sylow_order          := #P,
+                sylow_kernel_order   := #Kp,
+                pairs_tested         := pairsTested,
+                liftable             := true,
+                message              := Sprintf(
+                    "Liftable for all %o admissible Q_2 markings (odd t_2 mod %o).",
+                    #variants, o
+                ),
+                witness              := standardWitness
+            >;
+        end if;
+
+        return rec< WildProPPrimeReportFormat |
+            p                    := p,
+            is_wild              := true,
+            source_description   := sourceDescription,
+            generator_labels     := labels,
+            C_generator_images   := cImages,
+            B_generator_images   := bImages,
+            wild_inertia_order   := #IwildP,
+            Dp_order             := #Dp,
+            local_preimage_order := #H,
+            sylow_order          := #P,
+            sylow_kernel_order   := #Kp,
+            pairs_tested         := pairsTested,
+            liftable             := false,
+            message              := Sprintf(
+                "No marking-independent positive certificate: Q_2 relation fails for t_2 in %o modulo %o.",
+                failedT, o
+            ),
+            witness              := []
+        >;
+    end if;
+
+    // Legacy behaviour: test only the original t_2 = -1 representative.
     ok, witness, pairsTested := WildProPSolveQ2RelationInSylow(
-        ebp, P, Kp,
-        bImages[1], bImages[2], bImages[3]
+        ebp, P, Kp, bImages[1], bImages[2], bImages[3]
     );
 
     if ok then
@@ -736,9 +855,13 @@ end function;
     Primitive interface parallel to the tame test.
 *****************************************************************************************/
 
-IsCyclotomicWildProPLocallyLiftableAtPrime := function(ebp, p)
+IsCyclotomicWildProPLocallyLiftableAtPrime := function(
+    ebp, p : RobustQ2Marking := true
+)
 
-    R := DetailedWildProPReportAtPrime(ebp, p);
+    R := DetailedWildProPReportAtPrime(
+        ebp, p : RobustQ2Marking := RobustQ2Marking
+    );
     return R`liftable, R`message, R`witness;
 
 end function;

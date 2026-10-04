@@ -54,17 +54,24 @@ LocalVerdictYes     :=  1;
 LocalVerdictUnknown :=  0;
 LocalVerdictNo      := -1;
 
-LocalPolicyFormat := recformat< name, tame_veto_when_p_divides_kernel, wild_veto >;
+LocalPolicyFormat := recformat<
+    name,
+    tame_veto_when_p_divides_kernel,
+    wild_veto,
+    robust_q2_marking
+>;
 
 DefaultLocalPolicy := rec< LocalPolicyFormat |
     name := "sound",
     tame_veto_when_p_divides_kernel := false,
-    wild_veto := false >;
+    wild_veto := false,
+    robust_q2_marking := true >;
 
 LegacyLocalPolicy := rec< LocalPolicyFormat |
     name := "legacy",
     tame_veto_when_p_divides_kernel := true,
-    wild_veto := true >;
+    wild_veto := true,
+    robust_q2_marking := false >;
 
 IsPPowerOrder := function(m, p)
     return m eq p^Valuation(m, p);
@@ -112,7 +119,9 @@ LocalVerdictAtPrime := function(ebp, p, policy)
     end if;
 
     // ---- F/Q wild at p ----------------------------------------------------
-    ok := IsCyclotomicWildProPLocallyLiftableAtPrime(ebp, p);
+    ok := IsCyclotomicWildProPLocallyLiftableAtPrime(
+        ebp, p : RobustQ2Marking := policy`robust_q2_marking
+    );
     if ok then
         Dfull := DecompositionImageInBAtPrime(ebp, p);
         if IsPPowerOrder(#Dfull, p) then
@@ -230,14 +239,32 @@ LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60, Raw := f
     end for;
 
     // (b) Targeted scan: a quotient whose kernel order is prime to some
-    // prime that is currently undetermined.
-    tried := 0;
+    // prime that is currently undetermined.  Build the list first and rank it:
+    //
+    //   1. quotients that make the largest number of currently-unknown primes
+    //      exact come first;
+    //   2. among those, smaller residual kernels come first.
+    //
+    // This makes a finite MaxQuotients budget much more effective and avoids
+    // depending on Magma's NormalSubgroups enumeration order for the important
+    // choices.  MaxQuotients = 0 means exhaustive scan.
+    cands := [* *];
     for R in NormalSubgroups(ebp`G) do
-        if tried ge MaxQuotients then break; end if;
         M := R`subgroup;
         if #M eq 1 or M eq N or not (M subset N) then continue; end if;
         quotOrder := #N div #M;
-        if not exists{ p : p in bad | quotOrder mod p ne 0 } then continue; end if;
+        score := #[ p : p in bad | quotOrder mod p ne 0 ];
+        if score eq 0 then continue; end if;
+        Append(~cands, < M, score, quotOrder >);
+    end for;
+    Sort(~cands, func< X, Y |
+        X[2] eq Y[2] select X[3] - Y[3] else Y[2] - X[2]
+    >);
+
+    tried := 0;
+    for item in cands do
+        if MaxQuotients gt 0 and tried ge MaxQuotients then break; end if;
+        M := item[1];
         tried +:= 1;
         if LocalVerdict(QuotientEbp(ebp, M), policy) eq LocalVerdictNo then
             return LocalVerdictNo,
@@ -246,14 +273,24 @@ LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60, Raw := f
         end if;
     end for;
 
-    return LocalVerdictUnknown, "no obstructed quotient found", reports;
+    if MaxQuotients gt 0 and tried lt #cands then
+        return LocalVerdictUnknown,
+               Sprintf("no obstructed quotient found among the first %o of %o ranked candidates",
+                       tried, #cands),
+               reports;
+    end if;
+    return LocalVerdictUnknown,
+           Sprintf("no obstructed quotient found after checking all %o ranked candidates", tried),
+           reports;
 end function;
 
 // Consumer 1: may this pair still contribute to the b_W upper bound?
 // Uses the quotient inference, since an obstruction on any quotient is an
 // obstruction on the pair.
-LocalTestsAllowPair := function(ebp, policy : Raw := false)
-    v, why := LocalVerdictWithQuotients(ebp, policy : Raw := Raw);
+LocalTestsAllowPair := function(ebp, policy : Raw := false, MaxQuotients := 60)
+    v, why := LocalVerdictWithQuotients(
+        ebp, policy : Raw := Raw, MaxQuotients := MaxQuotients
+    );
     return v ne LocalVerdictNo, v, why;
 end function;
 

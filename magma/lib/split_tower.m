@@ -272,19 +272,20 @@ NilpotentComplementedCandidates := AdmissibleComplementedCandidates;
 // node is 1 -> Ker(pi0)/K -> G0/K -> B -> 1.  Different orders of peeling
 // off layers (M1 then M2, or M2 then M1) reach the same K, and the search
 // used to explore each of them again, which is exponential in the number of
-// layers.  `seen` records every K already expanded, and a K is expanded at
-// most once.
-//
-// Memoisation caveat: a K first reached near the depth limit is not
-// re-expanded if later reached with more depth to spare.  That can only lose
-// leaves, i.e. certificates; it can never produce a false one.  Depth 16 is
-// far above the number of layers in any group in the data.
+// layers.  `seen` records, for each K, the LARGEST remaining search depth with
+// which K has already been expanded.  Thus a state first reached near the
+// depth limit is re-expanded if it is later reached by a shorter path with
+// more depth to spare.  This avoids silently losing certificates through the
+// memoisation itself.
 //
 // Returns:
 //   done    true iff some branch reduced the kernel to 1
 //   leaves  if done, the single fully reduced problem; otherwise the DEAD
 //           ENDS of every branch, up to cap, as a list of <G, pi>
-//   seen    the updated memo
+//   seen    the updated memo, as <K, largest remaining depth expanded>
+//   complete true iff no branch was cut off by the depth or leaf cap.  If a
+//            fully split branch is found then complete is true, since the
+//            existential certificate has already been established.
 //
 // WHY ALL THE LEAVES.  Different branches leave different residuals, and
 // which of them a certificate can handle does not follow from the
@@ -294,11 +295,22 @@ NilpotentComplementedCandidates := AdmissibleComplementedCandidates;
 // Insolvability travels the other way and is likewise inherited from any
 // leaf, so the local machinery uses them all too.
 
-InSubgroupList := function(L, K)
+TowerSeenDepth := function(L, K)
     for x in L do
-        if x eq K then return true; end if;
+        if x[1] eq K then return x[2]; end if;
     end for;
-    return false;
+    return -1;
+end function;
+
+TowerRecordDepth := function(L, K, depth)
+    for i := 1 to #L do
+        if L[i][1] eq K then
+            if depth gt L[i][2] then L[i] := < K, depth >; end if;
+            return L;
+        end if;
+    end for;
+    Append(~L, < K, depth >);
+    return L;
 end function;
 
 TowerLeavesFrom := function(G0, pi0, B, K, depth, cap, seen)
@@ -310,38 +322,67 @@ TowerLeavesFrom := function(G0, pi0, B, K, depth, cap, seen)
     end if;
 
     N := Kernel(piK);
-    if #N eq 1 then return true, [* <GK, piK> *], seen; end if;
-    if depth le 0 then return false, [* <GK, piK> *], seen; end if;
+    if #N eq 1 then return true, [* <GK, piK> *], seen, true; end if;
+    if depth le 0 then return false, [* <GK, piK> *], seen, false; end if;
 
     cands := AdmissibleCandidates(GK, N);
-    if #cands eq 0 then return false, [* <GK, piK> *], seen; end if;
+    if #cands eq 0 then return false, [* <GK, piK> *], seen, true; end if;
 
     leaves := [* *];
-    for M in cands do
+    complete := true;
+    for idx := 1 to #cands do
+        M := cands[idx];
         K1 := M @@ qK;                       // cumulative kernel, inside G0
-        if InSubgroupList(seen, K1) then continue; end if;
-        Append(~seen, K1);
-        done, L, seen := $$(G0, pi0, B, K1, depth - 1, cap, seen);
-        if done then return true, L, seen; end if;
+        nextDepth := depth - 1;
+        if TowerSeenDepth(seen, K1) ge nextDepth then continue; end if;
+        seen := TowerRecordDepth(seen, K1, nextDepth);
+        done, L, seen, childComplete := $$(
+            G0, pi0, B, K1, nextDepth, cap, seen
+        );
+        if done then return true, L, seen, true; end if;
+        if not childComplete then complete := false; end if;
         for x in L do
-            if #leaves lt cap then Append(~leaves, x); end if;
+            if #leaves lt cap then
+                Append(~leaves, x);
+            else
+                complete := false;
+                break;
+            end if;
         end for;
-        if #leaves ge cap then break; end if;
+        if #leaves ge cap and idx lt #cands then
+            complete := false;
+            break;
+        end if;
     end for;
     // May be empty if every child had already been expanded elsewhere: its
     // dead ends were collected on that earlier visit.
-    return false, leaves, seen;
+    return false, leaves, seen, complete;
 end function;
 
-// The raw tower for a pair: <fullySplit, list of <G, pi>>.  It depends on
+// The raw tower for a pair:
+//
+//     <fullySplit, list of <G, pi>, searchComplete>.
+//
+// searchComplete means the result is conclusive for the tower question: either
+// a fully split branch was found, or (when fullySplit is false) every branch
+// was exhausted without hitting Depth/Cap.  It is false when a negative search
+// was truncated.  The first two components retain their old positions, so all
+// existing callers remain compatible.  The tower depends on
 // (G, pi) only, NOT on phi, so callers that handle several phi over one pi
 // should compute it once and pass it back in via the Raw parameter below.
-SplitTowerRaw := function(ebp : Cap := 24)
+SplitTowerRaw := function(ebp : Cap := 24, Depth := 16)
     G := ebp`G;
     triv := sub< G | Id(G) >;
-    done, L, seen := TowerLeavesFrom(G, ebp`pi, ebp`B, triv, 16, Cap, [* triv *]);
+    done, L, seen, complete := TowerLeavesFrom(
+        G, ebp`pi, ebp`B, triv, Depth, Cap, [* <triv, Depth> *]
+    );
     if #L eq 0 then L := [* <G, ebp`pi> *]; end if;
-    return < done, L >;
+    return < done, L, complete >;
+end function;
+
+SplitTowerSearchComplete := function(R)
+    if #R lt 3 then return false; end if;
+    return R[3];
 end function;
 
 // Every dead end of the tower, as embedding problems sharing the original's
@@ -349,10 +390,10 @@ end function;
 // to 1, in which case there is exactly one leaf and it is trivial.
 //
 // Raw: optional precomputed SplitTowerRaw(ebp) for the same pi (any phi).
-SplitReductionLeaves := function(ebp : Cap := 24, Raw := false)
+SplitReductionLeaves := function(ebp : Cap := 24, Depth := 16, Raw := false)
     R := Raw;
     if Type(R) eq BoolElt then
-        R := SplitTowerRaw(ebp : Cap := Cap);
+        R := SplitTowerRaw(ebp : Cap := Cap, Depth := Depth);
     end if;
     fullySplit := R[1];
     leaves := [* *];

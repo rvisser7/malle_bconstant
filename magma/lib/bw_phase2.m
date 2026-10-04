@@ -48,6 +48,8 @@
 //
 // SupplementDepth is passed through to CertifyAdmissible (see certify.m);
 // 0, the default, reproduces the published behaviour exactly.
+// MaxQuotients is passed to the quotient-obstruction search; 0 means
+// exhaustive, while 60 is the production default.
 //
 // DIAGNOSTIC FIELDS.  undetermined_local is now 0 or 1: whether the pair
 // that fixed BWupperLocal was admitted on an UNDETERMINED verdict (if 0, the
@@ -56,7 +58,9 @@
 // bound whose residual is central and which did not certify.  Both used to
 // depend on Gpiphi's enumeration order; now they do not.
 
-BWBoundsFromPairs := function(d, evaluated_pairs, bM, bT, policy : SupplementDepth := 0)
+BWBoundsFromPairs := function(
+    d, evaluated_pairs, bM, bT, policy : SupplementDepth := 0, MaxQuotients := 60
+)
     BWlowerSplit := bM;
     BWupperLocal := bM;
     splitCandidates := [];
@@ -97,7 +101,9 @@ BWBoundsFromPairs := function(d, evaluated_pairs, bM, bT, policy : SupplementDep
         // is skipped and the pair goes straight to the certificates.  That
         // keeps the local work no larger than in the old greedy loop.
         if not upperDone then
-            allow, v := LocalTestsAllowPair(ebp, policy : Raw := raw);
+            allow, v := LocalTestsAllowPair(
+                ebp, policy : Raw := raw, MaxQuotients := MaxQuotients
+            );
             if allow then
                 BWupperLocal := bval_int;
                 upperDone := true;
