@@ -255,7 +255,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 39T252|1|1|1|0|\N|\N|\N|\N
 39T253|2|2|2|0|\N|\N|\N|\N
 39T254|1|1|1|0|\N|\N|\N|\N
-39T255|\N|\N|\N|\N|\N|\N|\N|\N
+39T255|1|2|2|1|\N|\N|\N|\N
 39T256|2|2|2|0|\N|\N|\N|\N
 39T257|2|2|2|0|\N|\N|\N|\N
 39T258|1|1|1|0|\N|\N|\N|\N
