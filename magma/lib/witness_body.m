@@ -45,6 +45,46 @@ WitnessStrip := function(s)
     return out;
 end function;
 
+// Parse the coefficient-vector syntax accepted by witnesses.txt.  Keep this
+// deliberately tiny: witness files are data, not executable Magma input.
+WitnessParseCoeffs := function(s)
+    t := WitnessStrip(s);
+    if #t lt 2 or t[1] ne "[" or t[#t] ne "]" then
+        error "polynomial coefficients must have the form [c0,c1,...,cn]";
+    end if;
+    if #t eq 2 then return []; end if;
+    body := Substring(t, 2, #t - 2);
+    pieces := Split(body, ",");
+    if #pieces eq 0 then return []; end if;
+    coeffs := [];
+    for u in pieces do
+        if #u eq 0 then error "empty polynomial coefficient"; end if;
+        Append(~coeffs, StringToInteger(u));
+    end for;
+    return coeffs;
+end function;
+
+// Canonical representation written to verified_*.txt.  run_parallel.py uses
+// this to detect a stale verification file after witnesses.txt is edited.
+WitnessCoeffString := function(coeffs)
+    out := "[";
+    for i := 1 to #coeffs do
+        if i gt 1 then out cat:= ","; end if;
+        out cat:= Sprint(Integers() ! coeffs[i]);
+    end for;
+    return out cat "]";
+end function;
+
+// GaloisGroup(f) may use conditional steps.  A witness is intended to be a
+// rigorous arithmetic certificate, so insist that Magma proves those steps.
+WitnessProvenGaloisGroup := function(f)
+    G, roots, S := GaloisGroup(f);
+    if not GaloisProof(f, S) then
+        error "Magma could not prove the computed Galois group (GaloisProof failed)";
+    end if;
+    return G, roots, S;
+end function;
+
 // Cycle type of a permutation, as a sorted sequence of cycle lengths
 // including fixed points.
 WitnessCycleType := function(g)
@@ -161,9 +201,7 @@ VerifyWitness := function(label, coeffs : MaxPrimes := 300)
     end if;
     if not IsIrreducible(f) then error "polynomial is reducible"; end if;
 
-    // Magma's GaloisGroup over Q is proven by default; if your version
-    // needs a parameter for that, this is the one line to change.
-    G, _, S := GaloisGroup(f);
+    G, _, S := WitnessProvenGaloisGroup(f);
     k1, n1 := TransitiveGroupIdentification(G);
     if n1 ne n or k1 ne k then
         error Sprintf("Galois group is %oT%o, not %o", n1, k1, label);
@@ -320,17 +358,17 @@ VerifyResidualWitness := function(label, coeffs : MaxPrimes := 300)
 
     f := Polynomial(Integers(), coeffs);
     if not IsIrreducible(f) then error "polynomial is reducible"; end if;
-    Gam, _, S := GaloisGroup(f);
+    Gam, _, S := WitnessProvenGaloisGroup(f);
     if #G mod #Gam ne 0 then
         error Sprintf("Galois group has order %o, which does not divide #G = %o", #Gam, #G);
     end if;
 
     d, a, nS, nP, bM, bT, ev := EvaluatePairs(G);
     N0g, res := WitnessCyclotomicPart(Gam, S, d);
-    if N0g eq Gam then
-        return bM, true, bM, bT, 1,
-               Sprintf("K~ cap Q(mu_%o) = Q: witnesses only the trivial pair", d);
-    end if;
+
+    // Do NOT return early when F = Q.  We must first prove that Gal(f) really
+    // occurs as an admissible quotient G/M; otherwise an unrelated group of
+    // order dividing #G could be (incorrectly) accepted as a residual witness.
 
     // Frobenius data in Gam, collected once.
     clsG := Classes(Gam);
@@ -404,7 +442,7 @@ end function;
 // Process a witness file.  orderingName is "disc" or "prp"; rows marked
 // "both" are processed by either.
 VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
-    Write(outfile, "label|b_witness|exact|b_M|b_T|survivors|source"
+    Write(outfile, "label|b_witness|exact|b_M|b_T|survivors|source|poly"
           : Overwrite := true);
     lines := Split(Read(infile), "\n");
     for ln in lines do
@@ -425,7 +463,7 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
         failed := false;
         msg := "";
         try
-            coeffs := [ Integers() ! c : c in eval WitnessStrip(fields[3]) ];
+            coeffs := WitnessParseCoeffs(fields[3]);
             nlab := StringToInteger(Split(label, "T")[1]);
             if #coeffs - 1 eq nlab then
                 b, exact, bM, bT, nsurv, why := VerifyWitness(label, coeffs
@@ -444,8 +482,9 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
             printf "  %o: ERROR %o\n", label, msg;
             continue;
         end if;
-        Write(outfile, Sprintf("%o|%o|%o|%o|%o|%o|%o", label, b,
-                               exact select 1 else 0, bM, bT, nsurv, source));
+        Write(outfile, Sprintf("%o|%o|%o|%o|%o|%o|%o|%o", label, b,
+                               exact select 1 else 0, bM, bT, nsurv, source,
+                               WitnessCoeffString(coeffs)));
         printf "  %o (%o): b_witness = %o%o, b_M = %o, b_T = %o; %o\n",
                label, source, b, exact select "" else " (conservative)",
                bM, bT, why;

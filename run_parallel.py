@@ -45,6 +45,7 @@ knows only two things about it: how to invoke an entry point, and how to turn
 
 import os
 import sys
+import ast
 import argparse
 import datetime
 import subprocess
@@ -300,6 +301,55 @@ def parse_outfile(outfile):
     return results, errors, seconds
 
 
+def _parse_witness_coeffs(text):
+    """Parse and validate a witness coefficient vector without executing it."""
+    try:
+        value = ast.literal_eval(text)
+    except (ValueError, SyntaxError):
+        raise ValueError("invalid polynomial coefficient vector")
+    if not isinstance(value, (list, tuple)) or not value:
+        raise ValueError("polynomial coefficient vector must be a nonempty list")
+    if any(type(c) is not int for c in value):
+        raise ValueError("polynomial coefficients must all be integers")
+    return tuple(value)
+
+
+def _candidate_witness_polys(verified_path):
+    """Return the currently offered (label, polynomial) witnesses.
+
+    The ordering is inferred from verified_disc.txt / verified_prp.txt.  If the
+    source witnesses.txt is unavailable (for example in a custom witness
+    directory containing only a verified file), return None and retain the old
+    behaviour rather than guessing that every verification is stale.
+    """
+    base = os.path.basename(verified_path)
+    ordering = None
+    if base.startswith("verified_") and base.endswith(".txt"):
+        ordering = base[len("verified_"):-len(".txt")]
+    source = os.path.join(os.path.dirname(verified_path), "witnesses.txt")
+    if ordering not in ORDERINGS or not os.path.exists(source):
+        return None
+
+    offered = defaultdict(set)
+    with open(source, encoding="utf-8") as fh:
+        for raw in fh:
+            ln = raw.strip()
+            if not ln or ln.startswith("#") or ln.startswith("label|"):
+                continue
+            parts = raw.rstrip("\n").split("|", 4)
+            if len(parts) < 3:
+                continue
+            label, offered_ordering, poly = (x.strip() for x in parts[:3])
+            if offered_ordering not in ("both", ordering):
+                continue
+            try:
+                offered[label].add(_parse_witness_coeffs(poly))
+            except ValueError:
+                # The Magma verifier will report malformed witness rows.
+                continue
+    return offered
+
+
 def load_witnesses(path):
     """Read a verified-witness file (data/witnesses/verified_<ordering>.txt,
     written by magma/verify_witnesses_<ordering>.m).
@@ -307,14 +357,22 @@ def load_witnesses(path):
     Returns (best, errors):
       best:   label -> (b_witness, b_M, b_T, exact, source), keeping the
               witness with the largest b_witness for each label;
-      errors: label -> list of Magma error messages.
+      errors: label -> list of verification/staleness error messages.
 
-    A missing file just means no witnesses.  Lines that do not parse, or that
-    were cut off mid-write, are skipped.
+    New verifier output includes the polynomial coefficient vector.  When the
+    neighbouring witnesses.txt is available, a verified row is accepted only
+    if that exact (label, polynomial) is still offered for this ordering.  This
+    prevents an edited witnesses.txt from silently reusing an old certificate.
+    Legacy rows without the polynomial field are rejected and should simply be
+    regenerated with magma/verify_witnesses_<ordering>.m.
+
+    A missing verified file just means no witnesses.  Lines that do not parse,
+    or that were cut off mid-write, are skipped.
     """
     best, errors = {}, defaultdict(list)
     if not os.path.exists(path):
         return best, errors
+    offered = _candidate_witness_polys(path)
     with open(path, encoding="utf-8") as fh:
         for raw in fh:
             if not raw.endswith("\n"):
@@ -329,6 +387,22 @@ def load_witnesses(path):
                 continue
             if len(parts) < 7:
                 continue
+            if offered is not None:
+                if len(parts) < 8:
+                    errors[label].append(
+                        "legacy verified witness has no polynomial fingerprint; "
+                        "rerun magma/verify_witnesses_<ordering>.m")
+                    continue
+                try:
+                    verified_poly = _parse_witness_coeffs(parts[7])
+                except ValueError as exc:
+                    errors[label].append(f"bad polynomial fingerprint: {exc}")
+                    continue
+                if verified_poly not in offered.get(label, set()):
+                    errors[label].append(
+                        "stale verified witness: this polynomial is no longer "
+                        "present in witnesses.txt for this ordering")
+                    continue
             try:
                 bw, exact, bM, bT = (int(x) for x in parts[1:5])
             except ValueError:

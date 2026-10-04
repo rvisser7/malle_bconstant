@@ -13,7 +13,8 @@
 #   note     free text (optional)
 #
 # Nothing on this line is trusted.  magma/verify_witnesses_{disc,prp}.m
-# recomputes the Galois group, the intersection with Q(mu_d), the pair
+# parses the coefficient vector as data (never eval), recomputes and proves the
+# Galois group, the intersection with Q(mu_d), the pair
 # (pi, phi) the field witnesses, and b(pi, phi), and writes the results to
 # verified_{disc,prp}.txt, which is what run_parallel.py reads.
 #

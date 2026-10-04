@@ -57,6 +57,33 @@ end try;
 printf "  3T1  x^3-2 (wrong label): error raised = %o\n", raised;
 if not raised then failures +:= 1; end if;
 
+// witnesses.txt is data, not executable Magma.
+parsed := WitnessParseCoeffs(" [4, 0, 0, -2, 0, 0, 1] ");
+printf "  coefficient parser: %o\n", parsed;
+if parsed ne [4,0,0,-2,0,0,1] then failures +:= 1; end if;
+
+badparse := false;
+try
+    _ := WitnessParseCoeffs("[1,1+1,1]");
+catch err
+    badparse := true;
+end try;
+printf "  executable coefficient input rejected = %o\n", badparse;
+if not badparse then failures +:= 1; end if;
+
+// Regression for the residual F = Q path.  x^3-x-1 has Galois group S3 and
+// does not contain Q(mu_3).  Its order divides #A4, but S3 is not a quotient
+// of A4.  It must therefore be rejected, not accepted early as a trivial-pair
+// residual witness for 4T4 = A4.
+badresidual := false;
+try
+    _ := VerifyResidualWitness("4T4", [-1,-1,0,1]);
+catch err
+    badresidual := true;
+end try;
+printf "  unrelated residual group with F=Q rejected = %o\n", badresidual;
+if not badresidual then failures +:= 1; end if;
+
 if assigned slow then
     for c in [
         < "20T397", [111045689000000,-171736784000000,95714448000000,-18991071640000,

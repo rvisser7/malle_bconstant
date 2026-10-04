@@ -36,8 +36,9 @@ Only the `verified_*.txt` files are read by `run_parallel.py` and
 
 For each candidate the Magma script
 
-1. recomputes `GaloisGroup(f)` and checks `TransitiveGroupIdentification`
-   against the stated label;
+1. recomputes `GaloisGroup(f)`, requires `GaloisProof(f, S)` to certify any
+   conditional steps, and checks `TransitiveGroupIdentification` against the
+   stated label;
 2. runs Phase 1 (`EvaluatePairs`) on that Galois group, so every b(pi, phi) is
    computed exactly as in production;
 3. determines F = K~ cap Q(mu_d): for every normal N containing [G,G] whose
@@ -94,11 +95,18 @@ H of order 16. Each should verify to b_witness = b_T.
 
 ## Output format (`verified_*.txt`)
 
-    label|b_witness|exact|b_M|b_T|survivors|source
+    label|b_witness|exact|b_M|b_T|survivors|source|poly
     label|ERROR|message
 
-`b_M` and `b_T` are recomputed from the witness's own Galois group and must
-agree with the data files; `scripts/witnesses.py check` and `run_parallel.py`
+Here `poly` is the canonical coefficient vector that was actually verified.
+When `witnesses.txt` is present beside the verified file, the Python loader
+checks that the same `(label, poly)` is still offered for the relevant ordering.
+Thus editing or removing a witness invalidates the old certificate instead of
+silently reusing it.  Legacy `verified_*.txt` rows without `poly` are rejected;
+regenerate them with the Magma verifier after applying this change.
+
+`b_M` and `b_T` are recomputed from the witness's own proven Galois group and
+must agree with the data files; `scripts/witnesses.py` and `run_parallel.py`
 both refuse a witness that disagrees.
 
 ## Using the results
