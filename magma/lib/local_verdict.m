@@ -257,12 +257,19 @@ LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60, Raw := f
         if score eq 0 then continue; end if;
         Append(~cands, < M, score, quotOrder >);
     end for;
-    Sort(~cands, func< X, Y |
-        X[2] eq Y[2] select X[3] - Y[3] else Y[2] - X[2]
+    // cands is a Magma List (the first component is a subgroup), and Sort
+    // with a comparison function only accepts sequences.  Sort a sequence of
+    // indices instead, exactly as BWBoundsFromPairs does for evaluated_pairs.
+    candOrder := [1..#cands];
+    Sort(~candOrder, func< i, j |
+        cands[i][2] eq cands[j][2]
+            select cands[i][3] - cands[j][3]
+            else cands[j][2] - cands[i][2]
     >);
 
     tried := 0;
-    for item in cands do
+    for candIdx in candOrder do
+        item := cands[candIdx];
         if MaxQuotients gt 0 and tried ge MaxQuotients then break; end if;
         M := item[1];
         tried +:= 1;

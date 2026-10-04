@@ -62,6 +62,26 @@ end try;
 printf "  stale witness guards: bM=%o bT=%o lower=%o\n", badBM, badBT, badLower;
 if not (badBM and badBT and badLower) then failures +:= 1; end if;
 
+
+// Regression for the ranked quotient-obstruction scan.  9T10 in the PRP
+// ordering reaches this code path with a nonempty Magma List of quotient
+// candidates; sorting that List directly used to raise
+//     Runtime error in 'Sort': Bad argument types (List).
+// Loading the PRP modules here intentionally replaces the ordering-dependent
+// orbit/fullcheck routines after the discriminant tests above.
+load "lib/prp/orbits.m";
+load "lib/prp/fullcheck.m";
+G9 := TransitiveGroup(9, 10);
+R9 := FullCheck(G9);
+printf "  9T10 PRP ranked-quotient regression: bM=%o bT=%o bracket=[%o,%o]\n",
+       R9`b_M, R9`b_T, R9`BW_lower_split, R9`BW_upper_local;
+if R9`b_M ne 6 or R9`b_T ne 8 then failures +:= 1; end if;
+if not (R9`b_M le R9`BW_lower_split and
+        R9`BW_lower_split le R9`BW_upper_local and
+        R9`BW_upper_local le R9`b_T) then
+    failures +:= 1;
+end if;
+
 printf "test_phase2_properties: %o failures\n", failures;
 assert failures eq 0;
 print "test_phase2_properties: PASS";
