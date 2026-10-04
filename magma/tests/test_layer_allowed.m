@@ -85,6 +85,18 @@ Check("split tower: F21 x C3 reaches trivial kernel", R[1], true, ~failures);
 Check("split tower: successful search is complete",
       SplitTowerSearchComplete(R), true, ~failures);
 
+// Depth-aware memo regression: recording the same cumulative kernel with less
+// remaining depth must not overwrite a stronger earlier visit, while a later
+// visit with MORE remaining depth must update the memo.
+triv := sub< G | Id(G) >;
+seen := [* *];
+seen := TowerRecordDepth(seen, triv, 2);
+Check("tower memo: first depth recorded", TowerSeenDepth(seen, triv), 2, ~failures);
+seen := TowerRecordDepth(seen, triv, 1);
+Check("tower memo: smaller depth does not overwrite", TowerSeenDepth(seen, triv), 2, ~failures);
+seen := TowerRecordDepth(seen, triv, 5);
+Check("tower memo: larger depth does overwrite", TowerSeenDepth(seen, triv), 5, ~failures);
+
 printf "test_layer_allowed: %o failures\n", failures;
 assert failures eq 0;
 print "test_layer_allowed: PASS";
