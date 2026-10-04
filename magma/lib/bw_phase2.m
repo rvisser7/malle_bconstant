@@ -90,7 +90,15 @@ BWBoundsFromPairs := function(
     end if;
 
     sound := policy`name eq "sound";
-    pairs := Sort(evaluated_pairs, func< x, y | y[3] - x[3] >);
+
+    // evaluated_pairs may be a Magma List (its entries contain records), and
+    // Sort with a comparison function only accepts sequences.  Sort a sequence
+    // of integer indices instead, then rebuild the list in decreasing b-value.
+    // This also leaves the caller's evaluated_pairs unchanged.
+    pairOrder := [1..#evaluated_pairs];
+    Sort(~pairOrder, func< i, j | evaluated_pairs[j][3] - evaluated_pairs[i][3] >);
+    pairs := [* evaluated_pairs[i] : i in pairOrder *];
+
     upperDone := false;
     towerCache := [* *];   // entries < Kernel(pi), SplitTowerRaw >
 
