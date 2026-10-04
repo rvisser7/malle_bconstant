@@ -103,6 +103,20 @@ class WitnessLoaderTests(unittest.TestCase):
         self.assertNotIn("6T5", best)
         self.assertTrue(any("stale verified witness" in x for x in errors["6T5"]))
 
+    def test_magma_wrapped_verified_row_is_accepted(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._write_source(td, [
+                "20T105|disc|[1711,9889,19169,19024,28871,3012]|fixture|",
+            ])
+            path = os.path.join(td, "verified_disc.txt")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("label|b_witness|identification_exact|b_M|b_T|survivors|source|poly\n")
+                fh.write("20T105|3|1|2|3|1|fixture|[1711,9889,19169,\\\n")
+                fh.write("19024,28871,3012]\n")
+            best, errors = rp.load_witnesses(path)
+        self.assertFalse(errors)
+        self.assertEqual(best["20T105"][:3], (3, 2, 3))
+
     def test_legacy_verified_row_is_rejected_when_source_exists(self):
         with tempfile.TemporaryDirectory() as td:
             self._write_source(td, ["6T5|disc|[1,0,1]|current|"])

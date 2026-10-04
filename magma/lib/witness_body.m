@@ -545,8 +545,12 @@ end function;
 // as a correctness criterion.  orderingName is "disc" or "prp"; rows marked
 // "both" are processed by either.
 VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
-    Write(outfile, "label|b_witness|identification_exact|b_M|b_T|survivors|source|poly"
-          : Overwrite := true);
+    // Use a raw IO channel rather than Write(filename, object).  The latter
+    // goes through Magma's output pretty-printer and may wrap long rows with
+    // backslash-newline continuations, which breaks line-oriented consumers.
+    outio := Open(outfile, "w");
+    Write(outio,
+          "label|b_witness|identification_exact|b_M|b_T|survivors|source|poly\n");
     lines := Split(Read(infile), "\n");
     for ln in lines do
         s := WitnessStrip(ln);
@@ -576,15 +580,16 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
         end try;
 
         if failed then
-            Write(outfile, Sprintf("%o|ERROR|%o", label, msg));
+            Write(outio, Sprintf("%o|ERROR|%o\n", label, msg));
             printf "  %o: ERROR %o\n", label, msg;
             continue;
         end if;
-        Write(outfile, Sprintf("%o|%o|%o|%o|%o|%o|%o|%o", label, b,
-                               exact select 1 else 0, bM, bT, nsurv, source,
-                               WitnessCoeffString(coeffs)));
+        Write(outio, Sprintf("%o|%o|%o|%o|%o|%o|%o|%o\n", label, b,
+                              exact select 1 else 0, bM, bT, nsurv, source,
+                              WitnessCoeffString(coeffs)));
         printf "  %o (%o): b_witness = %o%o, b_M = %o, b_T = %o; %o\n",
                label, source, b, exact select "" else " (conservative)",
                bM, bT, why;
     end for;
+    delete outio;
 end procedure;

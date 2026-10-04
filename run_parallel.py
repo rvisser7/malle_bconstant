@@ -302,6 +302,32 @@ def parse_outfile(outfile):
     return results, errors, seconds
 
 
+def _iter_logical_lines(path):
+    """Yield logical text lines, joining Magma ``\\\n`` continuations.
+
+    Magma's pretty-printer may wrap long strings by writing a backslash at the
+    end of a physical line.  Verified witness rows can therefore span several
+    physical lines even though they are logically one pipe-separated record.
+    The verifier now writes through a raw IO channel, but accepting the old
+    continuation format keeps already-generated certificate files usable.
+
+    Yields ``(line, complete)`` where ``complete`` is false only for a final
+    unterminated logical line (which callers should treat as a partial write).
+    """
+    pending = ""
+    with open(path, encoding="utf-8") as fh:
+        for raw in fh:
+            complete = raw.endswith("\n")
+            physical = raw[:-1] if complete else raw
+            if physical.endswith("\\"):
+                pending += physical[:-1]
+                continue
+            yield pending + physical, complete
+            pending = ""
+    if pending:
+        yield pending, False
+
+
 def _parse_witness_coeffs(text):
     """Parse and validate a witness coefficient vector without executing it."""
     try:
@@ -374,42 +400,41 @@ def load_witnesses(path):
     if not os.path.exists(path):
         return best, errors
     offered = _candidate_witness_polys(path)
-    with open(path, encoding="utf-8") as fh:
-        for raw in fh:
-            if not raw.endswith("\n"):
+    for raw, complete in _iter_logical_lines(path):
+        if not complete:
+            continue
+        ln = raw.strip()
+        if not ln or ln.startswith("#") or ln.startswith("label|"):
+            continue
+        parts = ln.split("|")
+        label = parts[0]
+        if len(parts) >= 2 and parts[1] == "ERROR":
+            errors[label].append("|".join(parts[2:]))
+            continue
+        if len(parts) < 7:
+            continue
+        if offered is not None:
+            if len(parts) < 8:
+                errors[label].append(
+                    "legacy verified witness has no polynomial fingerprint; "
+                    "rerun magma/verify_witnesses_<ordering>.m")
                 continue
-            ln = raw.strip()
-            if not ln or ln.startswith("#") or ln.startswith("label|"):
-                continue
-            parts = ln.split("|")
-            label = parts[0]
-            if len(parts) >= 2 and parts[1] == "ERROR":
-                errors[label].append("|".join(parts[2:]))
-                continue
-            if len(parts) < 7:
-                continue
-            if offered is not None:
-                if len(parts) < 8:
-                    errors[label].append(
-                        "legacy verified witness has no polynomial fingerprint; "
-                        "rerun magma/verify_witnesses_<ordering>.m")
-                    continue
-                try:
-                    verified_poly = _parse_witness_coeffs(parts[7])
-                except ValueError as exc:
-                    errors[label].append(f"bad polynomial fingerprint: {exc}")
-                    continue
-                if verified_poly not in offered.get(label, set()):
-                    errors[label].append(
-                        "stale verified witness: this polynomial is no longer "
-                        "present in witnesses.txt for this ordering")
-                    continue
             try:
-                bw, identification_exact, bM, bT = (int(x) for x in parts[1:5])
-            except ValueError:
+                verified_poly = _parse_witness_coeffs(parts[7])
+            except ValueError as exc:
+                errors[label].append(f"bad polynomial fingerprint: {exc}")
                 continue
-            if label not in best or bw > best[label][0]:
-                best[label] = (bw, bM, bT, bool(identification_exact), parts[6])
+            if verified_poly not in offered.get(label, set()):
+                errors[label].append(
+                    "stale verified witness: this polynomial is no longer "
+                    "present in witnesses.txt for this ordering")
+                continue
+        try:
+            bw, identification_exact, bM, bT = (int(x) for x in parts[1:5])
+        except ValueError:
+            continue
+        if label not in best or bw > best[label][0]:
+            best[label] = (bw, bM, bT, bool(identification_exact), parts[6])
     return best, errors
 
 
