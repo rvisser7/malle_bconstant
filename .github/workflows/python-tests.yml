@@ -1,0 +1,46 @@
+name: Python tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-tests:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Compile Python sources
+        run: |
+          python -m compileall -q run_parallel.py scripts tests_py
+
+      - name: Run Python unit and data-integrity tests
+        run: |
+          python -m unittest discover -s tests_py -p 'test_*.py' -v
+
+      - name: Smoke-test command-line entry points
+        run: |
+          python run_parallel.py --help > /dev/null
+          python scripts/witnesses.py --help > /dev/null
