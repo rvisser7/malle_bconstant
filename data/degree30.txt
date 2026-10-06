@@ -4865,11 +4865,11 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 30T4862|2|2|2|0|\N|\N|\N|\N
 30T4863|1|1|1|0|\N|\N|\N|\N
 30T4864|\N|\N|\N|\N|\N|\N|\N|\N
-30T4865|\N|\N|\N|\N|\N|\N|\N|\N
-30T4866|\N|\N|\N|\N|\N|\N|\N|\N
+30T4865|1|2|2|1|\N|\N|\N|\N
+30T4866|1|2|2|1|\N|\N|\N|\N
 30T4867|1|1|1|0|\N|\N|\N|\N
 30T4868|1|1|1|0|\N|\N|\N|\N
-30T4869|\N|\N|\N|\N|\N|\N|\N|\N
+30T4869|1|2|2|1|\N|\N|\N|\N
 30T4870|2|2|2|0|\N|\N|\N|\N
 30T4871|1|1|1|0|\N|\N|\N|\N
 30T4872|1|1|1|0|\N|\N|\N|\N
