@@ -397,6 +397,31 @@ WitnessQuotientKernelOK := function(G, M)
     return false, "not found by the depth-limited admissible tower search";
 end function;
 
+// Twisting the identification.  If beta in Aut(Gam) maps N0g = Gal(K~/F)
+// to itself, then the witness used through alpha o beta realises the SAME
+// kernel N = q^-1(alpha(N0g)), and its phi is iota_beta o phi_alpha, where
+// iota_beta = alpha beta alpha^-1 on G/N.  Given a candidate pair s for
+// alpha, return the candidate in cands equal to iota_beta o s (or false).
+// alpha = iso o aut, so alpha^-1(y) = autInv(y @@ iso).
+WitnessTwistPair := function(s, cands, iso, aut, autInv, bta, q)
+    E := s[2];
+    U := E`C;
+    imgs := [];
+    for u in Generators(U) do
+        x := E`phi(u) @@ E`pi;                          // x in G with pi(x) = phi(u)
+        y := q(x);                                      // in G/M
+        z := iso(aut(bta(autInv(y @@ iso))));           // alpha beta alpha^-1
+        Append(~imgs, < E`f(u), z @@ q >);
+    end for;
+    for t in cands do
+        T := t[2];
+        if forall{ im : im in imgs | T`pi(im[2]) eq T`phi(im[1] @@ T`f) } then
+            return t;
+        end if;
+    end for;
+    return false;
+end function;
+
 // Verify a quotient witness: f defines a field whose Galois group Gam is a
 // quotient G/M of G = TransitiveGroup(n, k), with M = 1 allowed.  Same
 // returns as VerifyWitness.
@@ -405,8 +430,18 @@ end function;
 // rho_alpha, so each alpha (and each admissible M) proves its own bound; the
 // result is the maximum over them.  For a fixed alpha the realised kernel is
 // N = q^-1(alpha(N0)), and phi is narrowed with Frobenius cycle types in Gam,
-// transported by alpha, exactly as in VerifyWitness; the bound for that alpha
-// is the minimum of b over the survivors.
+// transported by alpha, exactly as in VerifyWitness.
+//
+// Cycle types cannot tell a Frobenius from its inverse, so for B of exponent
+// > 2 the survivors typically come in twins {phi, iota o phi}.  The plain
+// bound for alpha is the minimum of b over the survivors.  It is sharpened
+// soundly by twisting: for beta in Aut(Gam) fixing N0g, alpha o beta realises
+// the same kernel and the pair iota_beta o phi_alpha (WitnessTwistPair), so
+// whichever survivor s is the true phi_alpha, the value max_beta b(iota_beta
+// o s) is attained by a genuine G-solution.  The bound for alpha is therefore
+// min over survivors s of max over beta of b(iota_beta o s).  (For 26T34,
+// inversion on the C3 factor of Gam = C3 x Q8 swaps phi and its inverse,
+// whose b are 3 and 7.)
 VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
     parts := Split(label, "T");
     if #parts ne 2 then error "bad label " cat label; end if;
@@ -455,7 +490,10 @@ VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
         if not isIso then continue; end if;
         tried +:= 1;
 
-        for aut in WitnessAutList(Gam) do
+        auts := WitnessAutList(Gam);
+        stab := [ bta : bta in auts
+                  | sub< Gam | [ bta(x) : x in Generators(N0g) ] > eq N0g ];
+        for aut in auts do
             N := sub< Q | [ WitnessAlpha(iso, aut, x) : x in Generators(N0g) ] > @@ q;
             cands := [ item : item in ev |
                        Kernel(item[2]`pi) eq N and KernelResidues(item[2], d) eq res ];
@@ -473,7 +511,16 @@ VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
             if #surv eq 0 then
                 error "no pair is consistent with the Frobenius data -- convention bug?";
             end if;
-            bvals := { s[3] : s in surv };
+            autInv := aut^-1;
+            bvals := {};
+            for s0 in surv do
+                bt := s0[3];
+                for bta in stab do
+                    tw := WitnessTwistPair(s0, cands, iso, aut, autInv, bta, q);
+                    if Type(tw) ne BoolElt and tw[3] gt bt then bt := tw[3]; end if;
+                end for;
+                Include(~bvals, bt);
+            end for;
             if Min(bvals) gt best then
                 best := Min(bvals);
                 bestExact := #bvals eq 1;

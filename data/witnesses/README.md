@@ -65,6 +65,17 @@ exponent > 2 the result can therefore be conservative
 more Frobenius information than the cycle type in the defining permutation
 representation (for example auxiliary resolvents).
 
+For quotient witnesses this is partly repaired by **twisting**
+(`WitnessTwistPair` in `magma/lib/witness_body.m`).  If beta in Aut(Gam) maps
+Gal(K~/F) to itself, the witness used through alpha o beta realises the same
+kernel and the pair iota_beta o phi_alpha, with iota_beta = alpha beta
+alpha^-1 on G/N.  So whichever survivor s is the true phi_alpha, the value
+max_beta b(iota_beta o s) is attained by a genuine G-solution, and the bound
+for alpha is min over survivors of that maximum.  When the inversion twin is
+realised by such a beta, the twins collapse and the bound is exact: e.g.
+26T34 (Gam = C3 x Q8, inversion on the C3 factor; 3 -> 7) and 34T34
+(Gam = SmallGroup(32,17), every unit mod 8 on Gam/N0 = C8; 3 -> 9).
+
 ## Quotient and alternate-representation witnesses
 
 `VerifyAnyWitness` first uses the fast direct path when the polynomial realises
