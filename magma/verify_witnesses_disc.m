@@ -8,6 +8,12 @@
 //     magma -b verify_witnesses_disc.m
 //     magma -b infile:=<path> outfile:=<path> verify_witnesses_disc.m
 //
+// Incremental: rows already in outfile are reused when the same (label,
+// polynomial) is still offered, so only new or edited witnesses are verified.
+//     magma -b force:=1 verify_witnesses_disc.m                  (verify everything again)
+//     magma -b recheck:=26T34,34T34 verify_witnesses_disc.m      (re-verify these labels)
+// Use force:=1 after changing the verifier itself (lib/witness_body.m).
+//
 // Defaults: ../data/witnesses/witnesses.txt -> ../data/witnesses/verified_disc.txt
 
 load "lib/records.m";
@@ -32,5 +38,9 @@ load "lib/witness_body.m";
 if assigned infile then inf := infile; else inf := "../data/witnesses/witnesses.txt"; end if;
 if assigned outfile then outf := outfile; else outf := "../data/witnesses/verified_disc.txt"; end if;
 printf "Verifying witnesses in %o for the disc ordering -> %o\n", inf, outf;
-VerifyWitnessFile(inf, outf, "disc");
+rc := {};
+if assigned recheck then
+    rc := { WitnessStrip(x) : x in Split(recheck, ",") };
+end if;
+VerifyWitnessFile(inf, outf, "disc" : Force := assigned force, Recheck := rc);
 quit;

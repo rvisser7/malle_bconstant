@@ -591,7 +591,38 @@ end function;
 // the abstract quotient/M=1 path automatically; polynomial degree is not used
 // as a correctness criterion.  orderingName is "disc" or "prp"; rows marked
 // "both" are processed by either.
-VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
+// Verify every witness offered for this ordering and (re)write outfile.
+//
+// Incremental by default: rows already in outfile are reused when the same
+// (label, canonical polynomial) is still offered in infile, so only new or
+// edited witnesses are verified.  Cached rows get the source column of the
+// current infile line; ERROR rows are never cached (they are retried); rows
+// whose witness was removed from infile disappear.
+//
+//   Force   -- ignore the cache and verify everything (use after a change to
+//              the verifier itself, e.g. lib/witness_body.m);
+//   Recheck -- set of labels to verify again even if cached.
+VerifyWitnessFile := procedure(infile, outfile, orderingName :
+                               MaxPrimes := 300, Force := false, Recheck := {})
+    // Read the old results BEFORE opening outfile for writing.
+    cache := AssociativeArray();
+    if not Force then
+        old := "";
+        try
+            old := Read(outfile);
+        catch err
+            old := "";      // no previous results
+        end try;
+        for ln in Split(old, "\n") do
+            f := Split(WitnessStrip(ln), "|");
+            if #f eq 8 and f[1] ne "label" and f[2] ne "ERROR" then
+                cache[f[1] cat "|" cat f[8]] := f;
+            end if;
+        end for;
+    end if;
+    reused := 0;
+    verified := 0;
+
     // Use a raw IO channel rather than Write(filename, object).  The latter
     // goes through Magma's output pretty-printer and may wrap long rows with
     // backslash-newline continuations, which breaks line-oriented consumers.
@@ -618,14 +649,31 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
         msg := "";
         try
             coeffs := WitnessParseCoeffs(fields[3]);
-            b, exact, bM, bT, nsurv, why := VerifyAnyWitness(
-                label, coeffs : MaxPrimes := MaxPrimes
-            );
         catch err
             failed := true;
             msg := CleanForField(Sprint(err`Object));
         end try;
 
+        if not failed then
+            key := label cat "|" cat WitnessCoeffString(coeffs);
+            if IsDefined(cache, key) and not (label in Recheck) then
+                f := cache[key];
+                Write(outio, Sprintf("%o|%o|%o|%o|%o|%o|%o|%o\n",
+                                     f[1], f[2], f[3], f[4], f[5], f[6], source, f[8]));
+                reused +:= 1;
+                continue;
+            end if;
+            try
+                b, exact, bM, bT, nsurv, why := VerifyAnyWitness(
+                    label, coeffs : MaxPrimes := MaxPrimes
+                );
+            catch err
+                failed := true;
+                msg := CleanForField(Sprint(err`Object));
+            end try;
+        end if;
+
+        verified +:= 1;
         if failed then
             Write(outio, Sprintf("%o|ERROR|%o\n", label, msg));
             printf "  %o: ERROR %o\n", label, msg;
@@ -639,4 +687,5 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName : MaxPrimes := 300)
                bM, bT, why;
     end for;
     delete outio;
+    printf "%o witnesses verified, %o reused from %o\n", verified, reused, outfile;
 end procedure;

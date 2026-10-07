@@ -32,6 +32,15 @@ Only the `verified_*.txt` files are read by `run_parallel.py` and
 
 (`infile:=` and `outfile:=` override the default paths.)
 
+Verification is incremental: a row already in `verified_*.txt` is reused when
+the same `(label, poly)` is still offered in `witnesses.txt`, so only new or
+edited witnesses are verified.  `ERROR` rows are always retried.  After a
+change to the verifier itself (`magma/lib/witness_body.m`) cached rows may be
+stale, so re-verify with `force:=1` (everything) or `recheck:=L1,L2,...`
+(just those labels), e.g.
+
+    magma -b recheck:=26T34,34T34 verify_witnesses_disc.m
+
 ## What verification does
 
 For each candidate the Magma script
