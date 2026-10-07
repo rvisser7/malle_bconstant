@@ -98,3 +98,16 @@ label|ordering|poly|source|note
 20T783|disc|[160000,0,-240000,0,-96000,0,84000,0,22400,0,-1200,0,-420,0,0,0,1]|PARI-Kummer-over-x^4-7x^2-3x+1(sqrt5)|residual witness for G/O5(G); H = 16T423 [192,1509] (statistical id), Gal(K/Q(sqrt5)) = [96,204]; expect b_witness = b_T = 3
 20T877|disc|[32775625,0,-32775625,0,14026250,0,-3349125,0,486925,0,-44075,0,2430,0,-75,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T739 [384,20096] (statistical id), Gal(K/Q(sqrt5)) = [192,1494]; expect b_witness = b_T = 3
 20T880|disc|[1718786550625,0,90067417500,0,6705892875,0,310409500,0,14621000,0,254600,0,5675,0,80,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T763 [384,20095] (statistical id), Gal(K/Q(sqrt5)) = [192,1493]; expect b_witness = b_T = 3
+#
+# Degree 30, disc ordering: the Aut(A6) cluster.  For 30T4155/4156/4158/4161,
+# O_3(G) = C3^10 is complemented inside [G,G]; the leaf H = G/O_3 has order
+# 1440 and F = Q(sqrt -3) (d = 3), b_M = 1, b_T = 2.  H0 (fixing sqrt -3) is
+# S6, M10 or PGL(2,9).  Witnesses are LMFDB decics: for H = Aut(A6) (10T35)
+# a field whose quadratic subfield fixed by the required H0 is Q(sqrt -3)
+# (checked by sorting Frobenius into the cosets of A6, whose cycle types on 10
+# points are disjoint apart from 1^2 4^2); for H = C2 x PGL(2,9) the compositum
+# of a PGL(2,9) decic (10T30, quadratic subfield Q(sqrt -7)) with Q(sqrt -3).
+30T4155|disc|[8,-32,84,-120,84,0,-42,24,0,-4,1]|LMFDB-10.0.3539609321472.1|residual witness for G/O3(G) = Aut(A6) = 10T35; Gal(K~/Q(sqrt-3)) = S6; expect b_witness = b_T = 2
+30T4156|disc|[16,-2,21,24,-18,-12,32,-16,6,-2,1]|LMFDB-10.0.20155392000000.5|residual witness for G/O3(G) = Aut(A6) = 10T35; Gal(K~/Q(sqrt-3)) = M10 (disc in -3*Q^2); expect b_witness = b_T = 2
+30T4158|disc|[103,-865,3916,-10923,21525,-32271,38022,-35547,26178,-14485,5329,-595,-501,69,435,-516,345,-156,49,-10,1]|LMFDB-10.0.35450825752503.1-compositum-Q(sqrt-3)|residual witness for G/O3(G) = C2 x PGL(2,9); Gal(K~/Q(sqrt-3)) = PGL(2,9); expect b_witness = b_T = 2
+30T4161|disc|[-6,30,-62,64,44,-188,148,-40,5,-1,1]|LMFDB-10.4.2935341711360000.1|residual witness for G/O3(G) = Aut(A6) = 10T35, signature (4,3) as required (complex conjugation in S6 \ A6); Gal(K~/Q(sqrt-3)) = PGL(2,9); expect b_witness = b_T = 2
