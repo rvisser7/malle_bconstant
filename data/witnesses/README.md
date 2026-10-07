@@ -100,6 +100,18 @@ The six degree-20 entries (20T105, 20T111, 20T386, 20T390, 20T396, 20T397,
 disc ordering) are residual witnesses of this kind, with G = O_5(G) : H and
 H of order 16. Each should verify to b_witness = b_T.
 
+The ten further degree-20 entries added in October 2026 (20T498, 20T550,
+20T583, 20T598, 20T612, 20T782, 20T785, 20T789, 20T879, 20T884, disc
+ordering) are residual witnesses of the same kind, with H = G/O_5(G) of order
+32 to 384 and F = Q(sqrt 5).  For these the split-tower leaf G/O_5(G) is
+non-split and non-central, so no certificate applies and the witness is the
+only route to b_W.  20T583 and 20T598 share a polynomial (they have the same
+H).  The order-192 and order-384 ones were identified only statistically when
+they were found, so their verification is the first rigorous check.  Each
+should verify to b_witness = b_T.  They were found with
+`scripts/witness_search/` (see its README for the method and the local
+conditions that made the searches succeed).
+
 ## Output format (`verified_*.txt`)
 
     label|b_witness|identification_exact|b_M|b_T|survivors|source|poly

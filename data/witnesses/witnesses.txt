@@ -46,3 +46,22 @@ label|ordering|poly|source|note
 26T34|disc|[3251,-5216,-1317115,9874648,1824351,-80762123,-38515465,153960992,116421234,-89493850,-92050825,21547604,34484035,-1684592,-7333212,-198969,953584,50324,-77260,-3874,3773,121,-99,-1,1]|PARI-Q8/Q(sqrt13)-m221-times-cubic-of-Q(zeta13)|residual witness for G/O13(G); H = C3 x Q8, Gal(K/F) = C4, F = sextic subfield of Q(zeta13); expect b_witness = b_T = 7
 34T34|disc|[1,0,18,0,35,0,358,0,14315,0,62901,0,52752,0,15335,0,12751,0,12156,0,3775,0,-764,0,-475,0,137,0,103,0,18,0,1]|PARI-bnrclassfield-Q(i)-m17-cyclic16|residual witness for G/O17(G); H = SmallGroup(32,17), Gal(K/F) = C2^2, F = Q(zeta17)^+; b = 9 = b_T with EXACT Frobenius (PARI idealfrobenius + GAP), but the Magma verifier's cycle-type narrowing cannot fix phi up to inversion and reports 3
 34T33|disc|[374544,0,-209411712,0,26477190464,0,-187114710016,0,453898967896,0,-508483431360,0,324865801680,0,-131986115040,0,36176949705,0,-6908776200,0,933155160,0,-89288760,0,5983014,0,-272952,0,8024,0,-136,0,1]|PARI-bnrclassfield-Q(sqrt2)-m136-cyclic16|residual witness for G/O17(G); H = Q32, Gal(K/Q(sqrt17)) = Q16; expect b_witness = b_T = 3
+#
+# Residual witnesses for the last ten unresolved degree-20 groups (disc
+# ordering, Oct 2026), found with scripts/witness_search/.  In all ten,
+# G = O_5(G) : H with O_5(G) = C5^4 complemented inside [G,G], the only pairs
+# above b_M have F = Q(sqrt 5), and the leaf G/O_5(G) is non-split and
+# non-central, so no certificate applies.  Each field has Galois group H and
+# Q(sqrt 5) fixed by the required H0 (and no zeta_5 where H has a C4
+# quotient).  2-groups and 2O were identified exactly with PARI galoisinit;
+# the order-192/384 ones only statistically -- the verifier decides.
+20T498|disc|[6975590400,0,62199014400,0,-68823403200,0,2056749600,0,217203040,0,-3738680,0,-47560,0,290,0,1]|PARI-Kummer-over-L145(sqrt5)|residual witness for G/O5(G); H = [32,8], Gal(K/Q(sqrt5)) = M16 [16,6]; expect b_witness = b_T = 3
+20T550|disc|[15625,0,175000,0,545750,0,432000,0,147075,0,24800,0,2090,0,80,0,1]|PARI-2O-over-x^4-14x^2-20x-5|residual witness for G/O5(G); H = 2O [48,28], Gal(K/Q(sqrt5)) = SL(2,3); expect b_witness = b_T = 2
+20T583|disc|[-4336533680,6686282480,-3882489460,707427140,320687421,-133782229,-16460769,6011069,2548612,-44321,-198519,-19733,8364,637,-157,-5,1]|PARI-Kummer-over-L145(sqrt5)|residual witness for G/O5(G); H = [64,33], Gal(K/Q(sqrt5)) = [32,7]; expect b_witness = b_T = 4
+20T598|disc|[-4336533680,6686282480,-3882489460,707427140,320687421,-133782229,-16460769,6011069,2548612,-44321,-198519,-19733,8364,637,-157,-5,1]|PARI-Kummer-over-L145(sqrt5)|residual witness for G/O5(G); same H = [64,33] as 20T583, Gal(K/Q(sqrt5)) = [32,7]; expect b_witness = b_T = 4
+20T612|disc|[1438308497025,0,-492760535400,0,67498186140,0,-4799990880,0,193138146,0,-4476744,0,57996,0,-384,0,1]|PARI-central-lift-over-L145(sqrt5)|residual witness for G/O5(G); H = [64,35], Gal(K/Q(sqrt5)) = [32,6]; expect b_witness = b_T = 4
+20T782|disc|[625,0,-1500,0,-1830,0,3040,0,611,0,-800,0,-22,0,20,0,1]|PARI-Kummer-over-x^4-14x^2-20x-5(sqrt5)|residual witness for G/O5(G); H = 16T441 [192,1491] (statistical id), Gal(K/Q(sqrt5)) = [96,204]; expect b_witness = b_T = 3
+20T785|disc|[15625,0,75000,0,30750,0,-66000,0,12975,0,1200,0,-330,0,0,0,1]|PARI-Kummer-over-x^4-14x^2-20x-5(sqrt5)|residual witness for G/O5(G); H = 16T446 [192,1492] (statistical id), Gal(K/Q(sqrt5)) = [96,204]; expect b_witness = b_T = 3
+20T789|disc|[15625,0,-12500,0,13250,0,2000,0,575,0,400,0,170,0,20,0,1]|PARI-Kummer-over-x^4+8x+12(sqrt5)|residual witness for G/O5(G); H = 16T426 [192,202] (statistical id), Gal(K/Q(sqrt5)) = [96,204]; expect b_witness = b_T = 3
+20T879|disc|[625,0,-625,0,2000,0,-2500,0,1175,0,0,0,0,0,-5,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T749 [384,5606] (statistical id), Gal(K/Q(sqrt5)) = [192,1493]; expect b_witness = b_T = 3
+20T884|disc|[8390560000,0,4195280000,0,762112000,0,29312000,0,-2613200,0,-88000,0,7440,0,-150,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T740 [384,5607] (statistical id), Gal(K/Q(sqrt5)) = [192,1494]; expect b_witness = b_T = 3
