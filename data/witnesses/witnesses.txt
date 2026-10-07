@@ -85,3 +85,16 @@ label|ordering|poly|source|note
 # 9.1.79082438656.1 (x^9-3x^8+12x^6-14x^5-2x^4+12x^2+x+1, disc 2^14 13^6)
 # with Q(sqrt -3); its only abelian subfield is Q(sqrt -3).
 27T2099|disc|[1,1,-11,12,146,-10,62,348,-137,23,147,-156,138,-86,50,-24,9,-3,1]|LMFDB-9.1.79082438656.1-compositum-Q(sqrt-3)|residual witness for G/O3(G) = C2 x PSL(2,8); Gal(K/Q(sqrt-3)) = PSL(2,8); expect b_witness = b_T = 2
+#
+# The last five degree-20 disc groups (Oct 2026).  Again G = O_5(G) : H with
+# O_5(G) = C5^4 complemented inside [G,G] and F = Q(sqrt 5); now Z(H) = C4 is
+# not inside H0 and H has a faithful 16-point representation whose 2-block
+# quotient is A4 x C2 or S4 x C2, so the witnesses are K8(sqrt delta),
+# K8 = L(sqrt 5).  554 and 662 identified exactly (PARI galoisinit); 783, 877,
+# 880 statistically, with the statistical twins 16T418 / 16T725 excluded
+# because the field contains the octic K8 and the A4/S4 quartic L.
+20T554|disc|[153654611,-32370362,60740592,341806011,162267788,8655344,71087799,-4673002,8890013,-510384,480291,-16613,13798,-198,193,-1,1]|PARI-Kummer-over-x^4-x^3-7x^2+2x+9(sqrt5)|residual witness for G/O5(G); H = [48,33] = C4 o SL(2,3) (exact id), Gal(K/Q(sqrt5)) = SL(2,3); expect b_witness = b_T = 2
+20T662|disc|[1301,1675,-9173,7439,2678,-3619,-1420,220,1421,29,-480,-53,115,10,-12,-1,1]|PARI-Kummer-over-x^4-x-1(sqrt5)|residual witness for G/O5(G); H = [96,192] (exact id), Gal(K/Q(sqrt5)) = GL(2,3); expect b_witness = b_T = 2
+20T783|disc|[160000,0,-240000,0,-96000,0,84000,0,22400,0,-1200,0,-420,0,0,0,1]|PARI-Kummer-over-x^4-7x^2-3x+1(sqrt5)|residual witness for G/O5(G); H = 16T423 [192,1509] (statistical id), Gal(K/Q(sqrt5)) = [96,204]; expect b_witness = b_T = 3
+20T877|disc|[32775625,0,-32775625,0,14026250,0,-3349125,0,486925,0,-44075,0,2430,0,-75,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T739 [384,20096] (statistical id), Gal(K/Q(sqrt5)) = [192,1494]; expect b_witness = b_T = 3
+20T880|disc|[1718786550625,0,90067417500,0,6705892875,0,310409500,0,14621000,0,254600,0,5675,0,80,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T763 [384,20095] (statistical id), Gal(K/Q(sqrt5)) = [192,1493]; expect b_witness = b_T = 3

@@ -1,6 +1,7 @@
+LoadPackage("transgrp");; LoadPackage("smallgrp");;
 # Regenerate the cycle-type tables used by wslib.identify / wslib.sqrt5_subgroup.
 #
-#   gap -q -o 8g cycle_types.g
+#   gap -A -q -o 8g cycle_types.g   (-A: skip autoloading AtlasRep etc., which may try to download)
 #
 # Writes (into ../tables/):
 #   cycle_types_deg16.txt      k|order|IdGroup|[[cycle type, class size], ...]
@@ -12,8 +13,8 @@
 # Frobenius statistics).  Nothing in them is trusted: every witness found this
 # way is re-proved by magma/verify_witnesses_<ordering>.m.
 
-ORDERS := [32, 64, 192, 384];
-SUBS_FOR := [40, 140, 148, 153, 160, 154, 174, 176, 740, 749, 759];
+ORDERS := [32, 48, 64, 96, 192, 384];
+SUBS_FOR := [40, 60, 140, 148, 153, 154, 160, 174, 176, 189, 423, 739, 740, 749, 759, 763];
 
 dir := "../tables/";
 out := OutputTextFile(Concatenation(dir, "cycle_types_deg16.txt"), false);

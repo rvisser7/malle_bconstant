@@ -2,8 +2,9 @@
 
 Tools for *finding* residual witness fields when the split tower stops at a
 non-split, non-central leaf and no certificate applies.  They produced the
-ten degree-20 disc witnesses added to `data/witnesses/witnesses.txt` in
-October 2026 (20T498, 550, 583, 598, 612, 782, 785, 789, 879, 884).
+degree-20 disc witnesses added to `data/witnesses/witnesses.txt` in
+October 2026 (20T498, 550, 554, 583, 598, 612, 662, 782, 783, 785, 789, 877,
+879, 880, 884).
 
 Nothing these scripts print is trusted.  Add a candidate to
 `data/witnesses/witnesses.txt`, then run `magma -b verify_witnesses_disc.m`
@@ -14,6 +15,7 @@ b(pi, phi); `scripts/witnesses.py --ordering <ordering>` then compares with the 
 
 * Python 3 with `numpy` and `cypari2` (`pip install cypari2`); PARI >= 2.15.
 * GAP 4 with TransGrp, SmallGrp (only for `gap/` and to regenerate `tables/`).
+  Run it as `gap -A` so it does not autoload AtlasRep, which may try to download.
 
 ## The situation these tools address
 
@@ -50,7 +52,7 @@ the existing quotient path of the verifier accepts.
 |---|---|---|
 | `search_abelian_base.py` | `[H,H]` elementary, `H/[H,H] = Gal(E/Q)` | 20T498 ([32,8]), 20T583/598 ([64,33]) |
 | `search_central_lift.py` | as above after removing a central C2 | 20T612 ([64,35]) |
-| `search_octic_kummer.py` | S4/A4 block quotient, elementary block kernel | 20T782/785/789 (order 192), 20T879/884 (order 384) |
+| `search_octic_kummer.py` | S4/A4 block quotient, elementary block kernel | 20T554 (48), 20T662 (96), 20T782/783/785/789 (192), 20T877/879/880/884 (384) |
 | `search_binary_octahedral.py` | `H = 2O` | 20T550 |
 
 Each script's docstring has the exact command line that found the committed
@@ -69,9 +71,12 @@ classes are kernels of explicit F2 matrices (`wslib.GaloisBase`,
 turned into fields.
 
 Candidate closures are identified exactly by PARI `galoisinit` when it can
-(2-groups, 2O); otherwise by Frobenius cycle-type statistics against
-`tables/` (regenerate with `gap -q gap/cycle_types.g`), which is a filter
-only.
+(2-groups, 2O, and the orders 48 and 96 groups above); otherwise by Frobenius
+cycle-type statistics against `tables/` (regenerate with
+`gap -A -q gap/cycle_types.g`), which is a filter only.  Statistics can tie
+(16T60/57, 16T423/418, 16T763/725 have identical distributions); the script
+then prints a warning, and the twins have to be separated by other means
+(see the docstring of `search_octic_kummer.py`).
 
 ## Files
 
@@ -81,5 +86,5 @@ only.
 * `gap/local_lift.g`: local liftability tables (with the two examples above).
 * `gap/cycle_types.g`: regenerates `tables/*.txt`.
 * `tables/cycle_types_deg16.txt`, `tables/index2_subgroups_deg16.txt`:
-  cycle-type distributions of degree-16 transitive groups of orders 32, 64,
-  192, 384, and of the index-2 subgroups of the relevant ones.
+  cycle-type distributions of degree-16 transitive groups of orders 32, 48,
+  64, 96, 192, 384, and of the index-2 subgroups of the relevant ones.
