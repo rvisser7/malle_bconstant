@@ -65,3 +65,10 @@ label|ordering|poly|source|note
 20T789|disc|[15625,0,-12500,0,13250,0,2000,0,575,0,400,0,170,0,20,0,1]|PARI-Kummer-over-x^4+8x+12(sqrt5)|residual witness for G/O5(G); H = 16T426 [192,202] (statistical id), Gal(K/Q(sqrt5)) = [96,204]; expect b_witness = b_T = 3
 20T879|disc|[625,0,-625,0,2000,0,-2500,0,1175,0,0,0,0,0,-5,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T749 [384,5606] (statistical id), Gal(K/Q(sqrt5)) = [192,1493]; expect b_witness = b_T = 3
 20T884|disc|[8390560000,0,4195280000,0,762112000,0,29312000,0,-2613200,0,-88000,0,7440,0,-150,0,1]|PARI-Kummer-over-x^4-x+1(sqrt5)|residual witness for G/O5(G); H = 16T740 [384,5607] (statistical id), Gal(K/Q(sqrt5)) = [192,1494]; expect b_witness = b_T = 3
+#
+# 18T899 = C3^6 : S6 (disc ordering).  O_3(G) = C3^6 is complemented and
+# inside [G,G]; the split tower peels it and stops at the leaf S6 -> C2 with
+# kernel A6 (neither nilpotent, odd nor central), F = Q(sqrt -3).  Any S6
+# sextic with disc in -3*Q^2 is a residual witness: its only abelian subfield
+# is Q(sqrt -3).  This one has disc -3 * 167^2 and is the smallest found.
+18T899|disc|[1,-1,2,0,0,0,1]|PARI-search-S6-sextic-disc-3*167^2|residual witness for G/O3(G) = S6; Gal(K/Q(sqrt-3)) = A6; expect b_witness = b_T = 2
