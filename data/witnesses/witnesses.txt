@@ -72,3 +72,16 @@ label|ordering|poly|source|note
 # sextic with disc in -3*Q^2 is a residual witness: its only abelian subfield
 # is Q(sqrt -3).  This one has disc -3 * 167^2 and is the smallest found.
 18T899|disc|[1,-1,2,0,0,0,1]|PARI-search-S6-sextic-disc-3*167^2|residual witness for G/O3(G) = S6; Gal(K/Q(sqrt-3)) = A6; expect b_witness = b_T = 2
+#
+# 24T24873 (disc ordering): the split tower peels O_2 = C2^12, then C3^6, both
+# complemented and inside [G,G], and stops at the leaf S6 -> C2 (kernel A6),
+# F = Q(sqrt -3) = Q(mu_6) -- the same leaf as 18T899, so the same S6 sextic
+# (disc -3 * 167^2) is a residual witness.
+24T24873|disc|[1,-1,2,0,0,0,1]|PARI-search-S6-sextic-disc-3*167^2|residual witness for G/M = S6, M = C2^12 . C3^6; Gal(K/Q(sqrt-3)) = A6; expect b_witness = b_T = 3
+#
+# 27T2099 (disc ordering): the split tower peels O_3 = C3^9 (complemented,
+# inside [G,G]) and stops at the leaf C2 x PSL(2,8) -> C2 (kernel PSL(2,8)),
+# F = Q(sqrt -3).  Witness: the compositum of the PSL(2,8) nonic LMFDB
+# 9.1.79082438656.1 (x^9-3x^8+12x^6-14x^5-2x^4+12x^2+x+1, disc 2^14 13^6)
+# with Q(sqrt -3); its only abelian subfield is Q(sqrt -3).
+27T2099|disc|[1,1,-11,12,146,-10,62,348,-137,23,147,-156,138,-86,50,-24,9,-3,1]|LMFDB-9.1.79082438656.1-compositum-Q(sqrt-3)|residual witness for G/O3(G) = C2 x PSL(2,8); Gal(K/Q(sqrt-3)) = PSL(2,8); expect b_witness = b_T = 2
