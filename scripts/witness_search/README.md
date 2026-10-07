@@ -8,7 +8,7 @@ October 2026 (20T498, 550, 583, 598, 612, 782, 785, 789, 879, 884).
 Nothing these scripts print is trusted.  Add a candidate to
 `data/witnesses/witnesses.txt`, then run `magma -b verify_witnesses_disc.m`
 (or `_prp`), which proves the Galois group, the intersection with Q(mu_d) and
-b(pi, phi); `scripts/witnesses.py check` then compares with the data.
+b(pi, phi); `scripts/witnesses.py --ordering <ordering>` then compares with the data.
 
 ## Requirements
 

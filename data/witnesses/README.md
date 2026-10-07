@@ -130,7 +130,7 @@ both refuse a witness that disagrees.
 
 ## Using the results
 
-* `python3 scripts/witnesses.py check --ordering prp` compares the verified
+* `python3 scripts/witnesses.py --ordering prp` compares the verified
   witnesses with the data files and reports, per label: no gain (b_witness <=
   b_M), consistent, CONFLICT (b_witness above a stored exact b_W, or above
   b_T), settles (b_witness = b_T, so b_W = b_T), or raises the lower bound
