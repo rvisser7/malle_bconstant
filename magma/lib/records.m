@@ -48,3 +48,51 @@ FullCheckResultFormat := recformat<
     split_candidates, local_candidates,
     undetermined_local, central_residual_stalled
 >;
+
+// ---------------------------------------------------------------------
+// TryQuo(G, K): quo< G | K > for a normal subgroup K, without crashing.
+// Returns ok, Q, q with q : G -> Q a homomorphism (supporting @ and @@)
+// whose kernel is exactly K; ok = false if no quotient could be formed.
+//
+// For a large permutation group Magma's quo< G | K > can fail with
+// "Index of subgroup is too large", when it cannot find a permutation
+// representation of G/K (36T120951, 36T120953 = 2^18:((3^8:A9):S3), order
+// ~1.9 * 10^15).  Fallback: the action of G on one of its block systems;
+// when that kernel lies inside K, G/K is a quotient of the (much smaller)
+// block image H, so take H / image(K) instead, recursively.
+//
+// Callers treat ok = false as "this quotient is unavailable" and skip it.
+// That is sound in every place it is used: the split tower loses a branch
+// (fewer certificates, search marked incomplete), the local-quotient scan
+// loses one candidate obstruction, the witness search one route.  It can
+// only leave a bracket wider, never make it wrong.
+// ---------------------------------------------------------------------
+TryQuo := function(G, K)
+    ok := true;
+    try
+        Q, q := quo< G | K >;
+    catch err
+        ok := false;
+    end try;
+    if ok then return true, Q, q; end if;
+
+    if Type(G) ne GrpPerm or not IsTransitive(G) then
+        return false, G, IdentityHomomorphism(G);
+    end if;
+    best := false;
+    bestOrd := 1;
+    for P in AllPartitions(G) do                // one block per block system
+        f, H, Kf := BlocksAction(G, P);
+        if #Kf gt bestOrd and Kf subset K then
+            best := < f, H >; bestOrd := #Kf;
+        end if;
+    end for;
+    if Type(best) eq BoolElt then
+        return false, G, IdentityHomomorphism(G);
+    end if;
+    f := best[1]; H := best[2];
+    ok2, Q, q2 := $$(H, f(K));
+    if not ok2 then return false, G, IdentityHomomorphism(G); end if;
+    q := hom< G -> Q | [ q2(f(G.i)) : i in [1..Ngens(G)] ] >;
+    return true, Q, q;
+end function;

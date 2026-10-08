@@ -341,7 +341,8 @@ WitnessTowerReachesFrom := function(G0, Mtarget, K, depth, seen)
         qK := IdentityHomomorphism(G0);
         targetK := Mtarget;
     else
-        GK, qK := quo< G0 | K >;
+        okq, GK, qK := TryQuo(G0, K);
+        if not okq then return false, "", seen, false; end if;   // see TryQuo
         targetK := Mtarget @ qK;
     end if;
 
@@ -485,7 +486,8 @@ VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
         if #M * #Gam ne #G then continue; end if;
         ok, whyM := WitnessQuotientKernelOK(G, M);
         if not ok then continue; end if;
-        Q, q := quo< G | M >;
+        okq, Q, q := TryQuo(G, M);
+        if not okq then continue; end if;      // G/M not representable: skip
         isIso, iso := IsIsomorphic(Gam, Q);
         if not isIso then continue; end if;
         tried +:= 1;

@@ -90,7 +90,10 @@
 LayerAllowed := function(G, M)
     if IsNilpotent(M) then return true; end if;                // (9.6.10)
     if IsEven(#M) then return false; end if;
-    e := Exponent(AbelianQuotient(quo< G | M >));              // (9.5.8)
+    // (G/M)^ab = G^ab / image(M), so no quotient of G itself is needed
+    // (quo< G | M > can fail for very large G; see TryQuo in records.m).
+    AbG, fab := AbelianQuotient(G);
+    e := Exponent(quo< AbG | [ AbG | fab(m) : m in Generators(M) ] >);   // (9.5.8)
     return forall{ p : p in PrimeDivisors(#M) | e mod (p - 1) ne 0 };
 end function;
 
@@ -317,7 +320,12 @@ TowerLeavesFrom := function(G0, pi0, B, K, depth, cap, seen)
     if #K eq 1 then
         GK := G0; piK := pi0; qK := IdentityHomomorphism(G0);
     else
-        GK, qK := quo< G0 | K >;
+        okq, GK, qK := TryQuo(G0, K);
+        if not okq then
+            // No usable representation of G0/K: drop this branch and mark
+            // the search incomplete (see TryQuo in records.m).
+            return false, [* *], seen, false;
+        end if;
         piK := hom< GK -> B | [ pi0(GK.i @@ qK) : i in [1..Ngens(GK)] ] >;
     end if;
 

@@ -200,10 +200,12 @@ end function;
 // So the search below is targeted: it only bothers with quotients that kill
 // a prime currently responsible for an UNK.
 
+// Returns ok, ebp1; ok = false when G/M could not be formed (TryQuo).
 QuotientEbp := function(ebp, M)
-    G1, q := quo< ebp`G | M >;
+    okq, G1, q := TryQuo(ebp`G, M);
+    if not okq then return false, ebp; end if;
     pi1 := hom< G1 -> ebp`B | [ ebp`pi(G1.i @@ q) : i in [1..Ngens(G1)] ] >;
-    return rec< EmbeddingProb |
+    return true, rec< EmbeddingProb |
         B := ebp`B, G := G1, C := ebp`C, f := ebp`f,
         pi := pi1, phi := ebp`phi, d := ebp`d >;
 end function;
@@ -273,7 +275,9 @@ LocalVerdictWithQuotients := function(ebp, policy : MaxQuotients := 60, Raw := f
         if MaxQuotients gt 0 and tried ge MaxQuotients then break; end if;
         M := item[1];
         tried +:= 1;
-        if LocalVerdict(QuotientEbp(ebp, M), policy) eq LocalVerdictNo then
+        okq, ebpM := QuotientEbp(ebp, M);
+        if not okq then continue; end if;      // G/M not representable: skip
+        if LocalVerdict(ebpM, policy) eq LocalVerdictNo then
             return LocalVerdictNo,
                    Sprintf("quotient by a normal subgroup of order %o is locally obstructed", #M),
                    reports;
