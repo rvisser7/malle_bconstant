@@ -286,10 +286,10 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 39T283|1|1|1|0|\N|\N|\N|\N
 39T284|1|1|1|0|\N|\N|\N|\N
 39T285|1|1|1|0|\N|\N|\N|\N
-39T286|\N|\N|\N|\N|\N|\N|\N|\N
-39T287|\N|\N|\N|\N|\N|\N|\N|\N
+39T286|1|2|\N|4|\N|\N|\N|\N
+39T287|1|2|2|1|\N|\N|\N|\N
 39T288|1|1|1|0|\N|\N|\N|\N
-39T289|\N|\N|\N|\N|\N|\N|\N|\N
+39T289|1|2|\N|4|\N|\N|\N|\N
 39T290|2|2|2|0|\N|\N|\N|\N
 39T291|1|1|1|0|\N|\N|\N|\N
 39T292|2|2|2|0|\N|\N|\N|\N
