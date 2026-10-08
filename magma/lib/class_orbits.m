@@ -152,3 +152,172 @@ ClassOrbitCount := function(ebp, ctx)
     end for;
     return ctx`setsize, orbits;
 end function;
+
+
+// =====================================================================
+// CLASS FORMULA: b(pi, phi) from the classes of G alone
+// =====================================================================
+//
+// The machinery above builds Classes(N) and ClassMap(N) for every kernel
+// N = Ker(pi).  When G^ab is an elementary 2-group of rank 3 and
+// Gamma = (Z/dZ)^* is C2 x C6 that is 15 kernels, each of index <= 4 in G,
+// and for #G ~ 10^9 .. 10^12 each of them costs about as much as Classes(G).
+// That is what keeps Phase 1 from finishing in degrees 36 and 40 (prp).
+//
+// BURNSIDE.  G(pi,phi) acts on the kept elements of N by
+// (x, y) . g = x^-1 g^y x, and #G(pi,phi) = #N * #Gamma.  Count fixed points
+// class by class.  For g in a kept G-class inside N and y in Gamma, the x
+// with x^-1 g^y x = g are the coset x_y C_G(g), where x_y g x_y^-1 = g^y
+// (empty unless y stabilises the class [g]); the ones with pi(x) = phi(y)
+// number #(C_G(g) meet N) when phi(y) - pi(x_y) lies in pi(C_G(g)), else 0.
+// Summing over the #[g] elements of the class and dividing by #N #Gamma:
+//
+//   b(pi,phi) = 1/#Gamma * sum over kept G-classes [g] inside N of
+//               [B : pi(C_G(g))] * #{ y in Stab([g]) :
+//                                       phi(y) - pi(x_y) in pi(C_G(g)) }.
+//
+// HOMOMORPHISM.  x_y is unique up to C_G(g), and if x1, x2 work for y1, y2
+// then x1 x2 works for y1 y2.  So y -> pi(x_y) mod pi(C_G(g)) is a
+// homomorphism Stab([g]) -> B / pi(C_G(g)), and the count above is
+// #Kernel(chi) for chi(y) = phi(y) - pi(x_y) mod pi(C_G(g)).  x_y is only
+// needed on generators of Stab([g]).
+//
+// COST.  Once per GROUP: Classes, PowerMap, one Centraliser per kept class,
+// one IsConjugate per stabiliser generator.  Once per pi: pi of each class
+// representative and of its centraliser generators.  Once per pair: one
+// small abelian kernel per class.  No N is formed, ClassMap is never called.
+//
+// For solvable G the group work is done in PCGroup(G), which is far faster
+// for Classes / Centraliser / IsConjugate than a permutation group of
+// degree 36 or 40.  Everything stored is mapped back to G, so keepfn and pi
+// apply unchanged.
+//
+// tests/test_class_formula_agree_{prp,disc}.m compare this, pair by pair,
+// with MakeKernelCtx / bpiphiCtx above, which stay as the reference.
+
+ClassFormulaEntry := recformat<
+    rep,        // class representative, as an element of G
+    cgens,      // generators of C_G(rep), as elements of G
+    stab,       // Stab_C([rep]), a subgroup of C
+    xs          // xs[j] in G with xs[j] * rep * xs[j]^-1 = rep^f(stab.j)
+>;
+
+// keepfn : element of G -> BoolElt, invariant under G-conjugation and under
+// powering by units mod d (exactly as for MakeClassOrbitCtx).
+// C, f : the cyclotomic group and its map to Integers(d), as in Gpiphi.
+MakeClassFormulaData := function(G, C, f, keepfn : UsePC := true)
+    if UsePC and IsSolvable(G) then
+        W, iso := PCGroup(G);
+        back := func< x | x @@ iso >;
+    else
+        W := G;
+        back := func< x | x >;
+    end if;
+
+    cls := Classes(W);
+    keep := [ i : i in [1..#cls] | cls[i][1] gt 1 and keepfn(back(cls[i][3])) ];
+    K := #keep;
+    if K eq 0 then return [* *]; end if;
+    pos := [ 0 : i in [1..#cls] ];
+    for k := 1 to K do pos[keep[k]] := k; end for;
+
+    // Action of the generators of C on the kept classes, by powering.
+    pm := PowerMap(W);
+    ngC := Ngens(C);
+    genperm := [];
+    for j := 1 to ngC do
+        y := IntegerRing()!f(C.j);
+        row := [ pos[pm(keep[k], y)] : k in [1..K] ];
+        assert forall{ q : q in row | q ne 0 };   // keepfn not power-invariant
+        Append(~genperm, row);
+    end for;
+
+    // Cayley table of C on its generators, by position in Celts, so that the
+    // image of a class under EVERY element of C is one BFS of integer lookups.
+    Celts := [ c : c in C ];
+    nC := #Celts;
+    idpos := Index(Celts, Id(C));
+    mult := [ [ Index(Celts, Celts[m] + C.j) : j in [1..ngC] ] : m in [1..nC] ];
+    order := [ idpos ];                  // BFS order over C from the identity
+    parent := [ <0, 0> : m in [1..nC] ]; // <predecessor, generator>
+    seenC := [ false : m in [1..nC] ]; seenC[idpos] := true;
+    idx := 1;
+    while idx le #order do
+        m := order[idx]; idx +:= 1;
+        for j := 1 to ngC do
+            m2 := mult[m][j];
+            if not seenC[m2] then
+                seenC[m2] := true; parent[m2] := <m, j>; Append(~order, m2);
+            end if;
+        end for;
+    end while;
+
+    // Stabilisers.  C is abelian, so every class in one orbit has the same
+    // stabiliser: compute it once per orbit.
+    stabOf := [* *];
+    for k := 1 to K do Append(~stabOf, false); end for;
+    for k := 1 to K do
+        if Type(stabOf[k]) ne BoolElt then continue; end if;
+        img := [ 0 : m in [1..nC] ];
+        img[idpos] := k;
+        for t := 2 to #order do
+            m := order[t];
+            img[m] := genperm[parent[m][2]][img[parent[m][1]]];
+        end for;
+        S := sub< C | [ C | Celts[m] : m in [1..nC] | img[m] eq k ] >;
+        for m := 1 to nC do stabOf[img[m]] := S; end for;
+    end for;
+
+    data := [* *];
+    for k := 1 to K do
+        g := cls[keep[k]][3];
+        CW := Centraliser(W, g);
+        stab := stabOf[k];
+        xs := [];
+        for j := 1 to Ngens(stab) do
+            y := IntegerRing()!f(C!stab.j);
+            ok, t := IsConjugate(W, g, g^y);     // g^t = t^-1 g t = g^y
+            assert ok;
+            Append(~xs, back(t^(-1)));           // x g x^-1 = g^y
+        end for;
+        Append(~data, rec< ClassFormulaEntry |
+            rep   := back(g),
+            cgens := [ back(CW.j) : j in [1..Ngens(CW)] ],
+            stab  := stab,
+            xs    := xs >);
+    end for;
+    return data;
+end function;
+
+// Per-pi part: the classes inside N = Ker(pi), with their images in B.
+// Each entry is < stab, B / pi(C_G(g)), quotient map, pi(xs) there,
+// [B : pi(C_G(g))] >.  An empty list means no kept class lies in N.
+MakeClassFormulaPiCtx := function(ebp, data)
+    B := ebp`B; pi := ebp`pi;
+    entries := [* *];
+    for e in data do
+        if pi(e`rep) ne Id(B) then continue; end if;
+        Bg := sub< B | [ B | pi(c) : c in e`cgens ] >;
+        Qg, q := quo< B | Bg >;
+        Append(~entries, < e`stab, Qg, q, [ q(pi(x)) : x in e`xs ], #B div #Bg >);
+    end for;
+    return entries;
+end function;
+
+ClassFormulaCount := function(ebp, entries)
+    if #entries eq 0 then return 0; end if;
+    phi := ebp`phi; C := ebp`C;
+    total := 0;
+    for t in entries do
+        stab := t[1]; Qg := t[2]; q := t[3]; xB := t[4];
+        if Ngens(stab) eq 0 then
+            cnt := 1;
+        else
+            imgs := [ q(phi(C!stab.j)) - xB[j] : j in [1..Ngens(stab)] ];
+            cnt := #Kernel(hom< stab -> Qg | imgs >);
+        end if;
+        total +:= cnt * t[5];
+    end for;
+    assert total mod #C eq 0;
+    return total div #C;
+end function;

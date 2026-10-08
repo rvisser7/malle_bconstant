@@ -6,6 +6,8 @@ Run from `magma/`, not from here:
     magma -b tests/test_wreath.m
     magma -b tests/test_orbits_agree_disc.m
     magma -b tests/test_orbits_agree_prp.m
+    magma -b tests/test_class_formula_agree_disc.m
+    magma -b tests/test_class_formula_agree_prp.m
     magma -b tests/test_gpiphi_pruning.m
     magma -b tests/test_layer_allowed.m
     magma -b tests/test_local_tame_reference.m
@@ -22,7 +24,9 @@ Run from `magma/`, not from here:
 `test_q8_witt.m` replaces a claim that used to live only in a comment.
 `test_wreath.m` exercises structural shape (3), which two bugs had silently
 disabled. `test_gpiphi_pruning.m` checks the pruned pair enumeration against
-the old one. `test_layer_allowed.m` checks the split-tower layer rule
+the old one. `test_class_formula_agree_*.m` check the class formula (the
+default Phase 1) against the per-kernel count pair by pair, with and without
+`PCGroup`, then sweep every group of degree <= 10 (`maxdeg:=12` for more). `test_layer_allowed.m` checks the split-tower layer rule
 (nilpotent by NSW (9.6.10), or odd with the mu(K) condition of (9.5.8)).
 `test_gar.m` checks the GAR table against [MM99] Ch. IV -- including the
 entries that must be ABSENT (A6, L2(8), M23) -- and the GAR layer rule on

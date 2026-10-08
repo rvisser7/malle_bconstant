@@ -68,6 +68,16 @@ depends only on the generator of `C`, conjugation depends only on `phi(c)` in
 pair after that is array lookups. `MinIndexClasses` gets `a`, `d` and `#Smin`
 from the classes of `G`, so nothing element-sized is ever built.
 
+**Class formula (default).** `EvaluatePairs` now counts b(pi, phi) from the
+classes of G alone, by Burnside's lemma grouped by G-classes (CLASS FORMULA in
+`class_orbits.m`): per group one `Classes`, one `Centraliser` per kept class
+and one `IsConjugate` per stabiliser generator, done in `PCGroup(G)` when G is
+solvable; per pi only pi-images; per pair one small abelian kernel per class.
+No `Ker(pi)` is formed and `ClassMap` is never called, which is what made
+Phase 1 stall in degrees 36 and 40 (prp). `EvaluatePairs(G : Method :=
+"kernel")` runs the per-kernel count described above, kept as the reference;
+`tests/test_class_formula_agree_*.m` compare the two pair by pair.
+
 `Gpiphi` enumerates subgroups of `AbG / e*AbG` (with `e = Exp(C)`) of index
 dividing `#C`, since only those quotients admit a surjection from `C`, and in
 the disc ordering skips every `pi` whose kernel misses the minimal classes

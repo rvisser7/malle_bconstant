@@ -14,13 +14,37 @@
 //
 // #pairs now counts only pairs with Ker(pi) meeting Smin: Gpiphi drops the
 // others up front (MinReps), since Theorem 2.16 excludes them anyway.
-EvaluatePairs := function(G)
+//
+// Method := "formula" (default) counts from the classes of G alone
+// (class_orbits.m, CLASS FORMULA); Method := "kernel" is the previous
+// per-kernel orbit count, kept as the reference.  Both return the same pairs
+// with the same b-values; tests/test_class_formula_agree_disc.m checks this.
+EvaluatePairs := function(G : Method := "formula")
     a, minreps, nSmin, d := MinIndexClasses(G);
     T, groups := Gpiphi(G, d : MinReps := minreps);
 
     bM := 0;
     bT := 0;
     evaluated_pairs := [];
+
+    if Method eq "formula" then
+        data := MakeClassFormulaData(G, T[1]`C, T[1]`f, func< g | ind(g) eq a >);
+        for grp in groups do
+            entries := MakeClassFormulaPiCtx(T[grp[1]], data);
+            if #entries eq 0 then continue; end if;      // exp(Ker pi) > exp(G)
+            for j in grp do
+                ebp := T[j];
+                bval_int := ClassFormulaCount(ebp, entries);
+                if bval_int gt bT then bT := bval_int; end if;
+                if IsTrivialQuotientEbp(ebp) and bval_int gt bM then
+                    bM := bval_int;
+                end if;
+                Append(~evaluated_pairs, <j, ebp, bval_int>);
+            end for;
+        end for;
+        return d, a, nSmin, #T, bM, bT, evaluated_pairs;
+    end if;
+    assert Method eq "kernel";
 
     // One pass per pi: the class context depends on pi alone.
     for grp in groups do
