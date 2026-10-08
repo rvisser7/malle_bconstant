@@ -30,6 +30,15 @@ Example (30T2848, H = [384,5776] = 24T898, H0 = [192,194]):
   python3 search_kummer_fixed_field.py --base "x^4+8*x+12" --quad 5,-1 \
       --sub-order 4 --rank 3 --order 384 --targets "898:192,194;904:192,194"
 
+Orders 768/1536 have no IdGroup: a target "k:@p" asks for the sqrt(q)-subgroup
+at signature position p (wslib.gap_identify), and "|" separates target classes
+that are searched together (the run stops when each has a witness):
+  python3 search_kummer_fixed_field.py --base "x^4-x^3-4*x^2+x+2" --quad 5 \
+      --sub-order 4 --rank 5 --order 1536 --exact-kummer --linear --exact-skip 6 \
+      --targets "C=3168:@1;3174:@1;3211:@1;3205:@3|E=3165:@1;3171:@1;3147:@1;3151:@1"
+(30T3459/3501/3632 -> 24T3168, 30T3482/3565/3641/3647 -> 24T3147).  Choose P
+with gap/block_local_conditions.g first.
+
 Example (30T2778/2843, H = [384,5765] = 24T894/908, H0 = [192,197]):
   python3 search_kummer_fixed_field.py --base "x^4+8*x+12" --quad 5,-1 \\
       --sub-order 4 --rank 3 --order 384 --targets "894:192,197;908:192,197"
@@ -49,7 +58,8 @@ from search_octic_kummer import parse_targets
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--base', required=True, help='polynomial whose Galois closure is the base of P (e.g. an A4 quartic)')
-    ap.add_argument('--quad', required=True, help='comma-separated squarefree integers c; P = closure(base)(sqrt c, ...)')
+    ap.add_argument('--quad', default='', help='comma-separated squarefree integers c; P = closure(base)(sqrt c, ...) '
+                                             '(empty: P = closure(base), e.g. an S4 quartic with disc in 5*Q^2)')
     ap.add_argument('--q', type=int, default=5, help='the quadratic field F = Q(sqrt q) (default 5)')
     ap.add_argument('--sub-order', type=int, required=True, help='order of the core-free subgroup U; deg K = [P:Q]/order')
     ap.add_argument('--S', default='2,3,5', help='primes always in S; primes dividing disc K are added')
@@ -66,15 +76,33 @@ def main():
     ap.add_argument('--linear', action='store_true',
                     help='make the rank condition linear: for each r-dimensional submodule N of the permutation '
                          'module on the conjugates of K, search the classes killed by N^perp')
+    ap.add_argument('--only-base', default='', help='comma-separated 1-based indices of the base fields K to search')
     ap.add_argument('--seed', type=int, default=1)
     args = ap.parse_args()
 
-    targets = parse_targets(args.targets)
+    # "|" separates target classes (e.g. one per residual group); with --exact-kummer the search
+    # continues until every class has a witness.  "label=" prefixes are optional.
+    classes = []
+    for ci, ctext in enumerate(args.targets.split('|')):
+        label, _, ctext = ctext.rpartition('=')
+        tg = {}
+        for part in ctext.split(';'):
+            if ':@' in part:          # "3187:@1": H0 by signature position (wslib.gap_identify)
+                k, p_ = part.split(':@')
+                tg[int(k)] = ('@', int(p_))
+            else:
+                tg.update(parse_targets(part))
+        classes.append((label or str(ci + 1), tg))
+    targets = {k: v for _, tg in classes for k, v in tg.items()}
+    if len(classes) > 1 and not args.exact_kummer:
+        ap.error('several target classes need --exact-kummer')
+    if any(isinstance(v, tuple) and v[0] == '@' for v in targets.values()) and not args.exact_kummer:
+        ap.error('targets of the form k:@p need --exact-kummer')
     rng = random.Random(args.seed)
     t0 = time.time()
 
     P = pari.nfsplitting(pari(args.base))
-    for c in args.quad.split(','):
+    for c in [t for t in args.quad.split(',') if t.strip()]:
         P = pari.polcompositum(P, pari(f'x^2-({int(c)})'))[0]
     P = pari.polredbest(P)
     n = int(pari.poldegree(P))
@@ -98,21 +126,40 @@ def main():
     deg = 2 * n // args.sub_order
     gid_of = {kk: gid for kk, sz, gid, dist in wslib.tables(deg)[0]}
     dist_of = {kk: dist for kk, sz, gid, dist in wslib.tables(deg)[0]}
-    accept = {(gid_of[k], need) for k, need in targets.items()}
+    accept = {(k, need) for k, need in targets.items()}       # (nTk of the exact group, IdGroup(H0))
+    remaining = list(classes)
     gate = {kk for kk in dist_of for k in targets if dist_of[kk] == dist_of[k]}
 
     def parse_result(res):
-        # "RESULT 192 [ 192, 199 ] 312 2 [ 96, 3 ]"
+        # "RESULT 192 [ 192, 199 ] 312 2 [ 96, 3 ] SIGPOS 2" -> (312, (96, 3), 2)
         if res is None:
             return None
         import re
-        ids = re.findall(r'\[\s*(\d+),\s*(\d+)\s*\]', res)
-        if len(ids) != 2:
+        m = re.match(r'RESULT\s+\d+\s+\[[^\]]*\]\s+(\d+)\s+\d+\s+\[\s*(\d+),\s*(\d+)\s*\](?:\s+SIGPOS\s+(\d+))?', res)
+        if not m:
             return None
-        return (tuple(map(int, ids[0])), tuple(map(int, ids[1])))
+        return (int(m.group(1)), (int(m.group(2)), int(m.group(3))), int(m.group(4) or 0))
+
+    def matches(parsed, tg):
+        # a target "k:a,b" needs IdGroup(H0) = [a,b]; "k:@p" needs H0 at signature position p
+        # (see wslib.gap_identify; for orders without IdGroup, e.g. 1536 -> H0 of order 768)
+        nd = tg.get(parsed[0], 0)
+        if nd == 0:
+            return False
+        return nd is None or (nd[0] == '@' and parsed[2] == nd[1]) or (nd[0] != '@' and parsed[1] == nd)
+
+    def accepted(parsed):
+        return any(matches(parsed, tg) for _, tg in remaining)
+
+    support = set()
+    for kk in (gate if args.exact_kummer else set(targets)):
+        support |= set(dist_of[kk])
 
     base_S = {int(t) for t in args.S.split(',')}
-    for K in bases:
+    only = {int(t) for t in args.only_base.split(',') if t}
+    for bi, K in enumerate(bases, 1):
+        if only and bi not in only:
+            continue
         Sprimes = sorted(base_S | {int(p) for p in pari.factor(abs(int(pari.nfdisc(K))))[0]})
         cd = wslib.ConjugateData(K, P, Sprimes, nprimes=12)
         r = len(cd.gens)
@@ -137,7 +184,11 @@ def main():
                         print(f"  {streak[0]} exact rejections in a row: next submodule", flush=True)
                         break
                     yield e
+        count = 0
         for e in candidates():
+            count += 1
+            if count % 250 == 0:
+                print(f"    ... {count} candidates, {time.time()-t0:.0f}s, stats {stats}", flush=True)
             if cd.conjugate_rank(e) != args.rank:
                 continue
             key = e.tobytes()
@@ -146,6 +197,9 @@ def main():
             seen.add(key)
             M = wslib.quadratic_extension(cd.Ky, cd.element(e), reduce=False)
             if M is None:
+                continue
+            if wslib.quick_reject(M, support):
+                stats['screened'] = stats.get('screened', 0) + 1
                 continue
             top = wslib.identify(M, args.order, 300)
             if not top:
@@ -160,7 +214,7 @@ def main():
                 res = wslib.gap_identify(gens, chi, 2 * len(cd.embs))
                 print(f"  exact (Kummer): {res}", flush=True)
                 parsed = parse_result(res)
-                if parsed is None or (parsed[0], parsed[1]) not in accept:
+                if parsed is None or not accepted(parsed):
                     stats['exact-reject'] = stats.get('exact-reject', 0) + 1
                     streak[0] += 1
                     continue
@@ -180,10 +234,19 @@ def main():
                   f"log-likelihood margin {margin:.0f}; {time.time()-t0:.0f}s", flush=True)
             if margin == 0 and not args.exact_kummer:
                 print("  WARNING: margin 0 -- statistical twin; rerun with --exact-kummer", flush=True)
-            if args.exact_kummer:
-                print("  group confirmed exactly by Kummer theory", flush=True)
-            return 0
+            if not args.exact_kummer:
+                return 0
+            done = [lab for lab, tg in remaining if matches(parsed, tg)]
+            print(f"  group confirmed exactly by Kummer theory; target class {', '.join(done)}", flush=True)
+            remaining[:] = [(lab, tg) for lab, tg in remaining if lab not in done]
+            if not remaining:
+                return 0
+            gate.clear()
+            gate.update(kk for kk in dist_of for _, tg in remaining for k in tg if dist_of[kk] == dist_of[k])
         print(f"  not found over this K; best-match groups seen: {stats}", flush=True)
+    if args.exact_kummer and len(remaining) < len(classes):
+        print(f"NOT FOUND for target classes {', '.join(lab for lab, _ in remaining)}")
+        return 0
     print("NOT FOUND")
     return 1
 

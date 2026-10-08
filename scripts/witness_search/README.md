@@ -54,7 +54,7 @@ the existing quotient path of the verifier accepts.
 | `search_central_lift.py` | as above after removing a central C2 | 20T612 ([64,35]) |
 | `search_octic_kummer.py` | S4/A4 block quotient, elementary block kernel | 20T554 (48), 20T662 (96), 20T782/783/785/789 (192), 20T877/879/880/884 (384) |
 | `search_binary_octahedral.py` | `H = 2O` | 20T550 |
-| `search_kummer_fixed_field.py` | 2-block quotient a fixed field of (A4 closure)(sqrt 5, ...), any degree; `--exact-kummer` | 30T2400, 2418, 2467, 2778, 2843, 2848 (degree 24, orders 192/384) |
+| `search_kummer_fixed_field.py` | 2-block quotient a fixed field of (A4 or S4 closure)(sqrt 5, ...), any degree; `--exact-kummer` | 30T2400, 2418, 2467, 2778, 2843, 2848 (degree 24, orders 192/384); 30T3045, 3068, 3087, 3142, 3149, 3176 (768); 30T3440, 3442, 3459, 3463, 3482, 3501, 3539, 3561, 3565, 3588, 3632, 3641, 3647 (1536) |
 
 Each script's docstring has the exact command line that found the committed
 witness.  Typical run times on one core: seconds (abelian base), 1-5 minutes
@@ -101,13 +101,52 @@ order-384 target 24T894/908 never appeared; with sqrt(-3) it did at once),
 and for [192,199] the Frobenius of the A4 quartic at 5 must not be a double
 transposition (then only [192,190] occurs).
 
+### Orders 768 and 1536 (no IdGroup)
+
+IdGroup does not cover orders 768 and 1536, so `wslib.gap_identify` also
+reports `SIGPOS p`: the kernel of the sqrt(q)-character is the p-th
+index-2 normal subgroup of the library group TransitiveGroup(24, k), these
+subgroups sorted by their cycle-type signature (sorted list of
+[cycle type, class size]); p = 0 if that signature is shared.  Targets are
+then written `k:@p`, e.g. `--targets "3187:@1;3207:@1"`.  The positions
+for a given G come from the coset action of H = G/O_5(G) on a core-free
+index-24 subgroup, H0 being the image of the subgroup of the b_W-maximising
+pair (computed in GAP).  Matching the position is
+sufficient but not necessary: an automorphism of H may move H0 to another
+position (for 24T3187 positions 1 and 3 are swapped by Aut, which is why
+30T3440 and 30T3588 share a witness).  Several target classes can be
+searched at once, separated by `|` (optionally labelled `A=...|B=...`); the
+search runs until every class has a witness.
+
+The 768/1536 leaves have block kernel C2^5 or C2^6 over C2 x S4 (12T21/23/24),
+C2^2 x A4 (12T25), S4 (12T9) or C2 x A4 (12T7).  Which base P works is again
+decided locally, and `gap/block_local_conditions.g` prints the conditions for
+a target (liftable complex conjugations; tame (inertia, Frobenius) pairs with
+no lift).  For instance 24T3187 @1 needs: complex conjugation not a
+transposition, Frob_5 of the S4 quartic not a transposition, and (5/p) = 1
+at a prime with transposition inertia; the first S4 quartic tried (disc 2777,
+(5/2777) = -1) only ever gave the neighbour 24T3205, the quartic
+x^4-x^3-5x^2+5x+1 (disc 8069, (5/8069) = 1) gave 24T3187 at once.  Likewise
+24T3118 @1 (30T3561, sqrt 5 = sqrt disc) forbids sqrt(c) with c < 0 over a
+totally real quartic, and a prime p | c must be 1 mod 4 with Frob_p of the
+quartic not a transposition: c = -1, -3, 13 failed, c = 29 worked at once.
+
+Example (30T3440 and 30T3588):
+
+    python3 search_kummer_fixed_field.py --base "x^4-x^3-5*x^2+5*x+1" --quad 5 \
+        --sub-order 4 --rank 5 --order 1536 --targets "A=3187:@1;3207:@1" \
+        --exact-kummer --linear --exact-skip 12 --max 3000
+
 ## Files
 
 * `wslib.py`: shared code (S-units, Legendre coordinates, F2 algebra,
   identification).
 * `search_*.py`: the four searches above.
 * `gap/local_lift.g`: local liftability tables (with the two examples above).
+* `gap/block_local_conditions.g`: local conditions for a 2-block target
+  (degree-30 O_5 family).
 * `gap/cycle_types.g`, `gap/cycle_types_deg24.g`: regenerate `tables/*.txt`.
 * `tables/cycle_types_deg16.txt`, `tables/index2_subgroups_deg16.txt`:
   cycle-type distributions of degree-16 transitive groups of orders 32, 48,
-  64, 96, 192, 384 (and `*_deg24.txt`: degree 24, orders 192 and 384), and of the index-2 subgroups of the relevant ones.
+  64, 96, 192, 384 (and `*_deg24.txt`: degree 24, orders 192, 384, 768 and
+  1536), and of the index-2 subgroups of the relevant ones.
