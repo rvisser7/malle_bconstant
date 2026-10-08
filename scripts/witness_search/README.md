@@ -54,6 +54,7 @@ the existing quotient path of the verifier accepts.
 | `search_central_lift.py` | as above after removing a central C2 | 20T612 ([64,35]) |
 | `search_octic_kummer.py` | S4/A4 block quotient, elementary block kernel | 20T554 (48), 20T662 (96), 20T782/783/785/789 (192), 20T877/879/880/884 (384) |
 | `search_binary_octahedral.py` | `H = 2O` | 20T550 |
+| `search_kummer_fixed_field.py` | 2-block quotient a fixed field of (A4 closure)(sqrt 5, ...), any degree; `--exact-kummer` | 30T2400, 2418, 2467, 2778, 2843, 2848 (degree 24, orders 192/384) |
 
 Each script's docstring has the exact command line that found the committed
 witness.  Typical run times on one core: seconds (abelian base), 1-5 minutes
@@ -78,13 +79,35 @@ cycle-type statistics against `tables/` (regenerate with
 then prints a warning, and the twins have to be separated by other means
 (see the docstring of `search_octic_kummer.py`).
 
+## Exact identification by Kummer theory
+
+When the closure is too large for PARI `galoisinit` (it fails on the order
+192/384 closures of degree 24) and the cycle-type statistics tie
+(24T298/301/308, 24T299/305/309/310/312 for order 192),
+`wslib.kummer_galois_group(K, P, delta)` computes Gal(L/Q) exactly for
+L = closure of K(sqrt delta), K a subfield of the Galois field P: L is
+P(sqrt delta_1, ..., sqrt delta_n), every sigma in Gal(P/Q) lifts as
+sqrt(delta_i) -> s_i sqrt(delta_pi(i)), and the admissible sign vectors s are
+cut out by the multiplicative relations among the delta_i, each certified to
+be an exact square in P (nfroots).  The resulting permutation group on the 2n
+roots is identified with GAP (`wslib.gap_identify`: IdGroup of H and of the
+subgroup fixing sqrt q).  `search_kummer_fixed_field.py --exact-kummer` uses
+it on every statistical hit in the twin class of a target.
+
+For the degree-30 searches the decisive conditions were again local: the A4
+quartic must be totally real (complex conjugation lies in H0 and must act
+trivially on the A4 part), P should be unramified at 2 (with sqrt(-1) the
+order-384 target 24T894/908 never appeared; with sqrt(-3) it did at once),
+and for [192,199] the Frobenius of the A4 quartic at 5 must not be a double
+transposition (then only [192,190] occurs).
+
 ## Files
 
 * `wslib.py`: shared code (S-units, Legendre coordinates, F2 algebra,
   identification).
 * `search_*.py`: the four searches above.
 * `gap/local_lift.g`: local liftability tables (with the two examples above).
-* `gap/cycle_types.g`: regenerates `tables/*.txt`.
+* `gap/cycle_types.g`, `gap/cycle_types_deg24.g`: regenerate `tables/*.txt`.
 * `tables/cycle_types_deg16.txt`, `tables/index2_subgroups_deg16.txt`:
   cycle-type distributions of degree-16 transitive groups of orders 32, 48,
-  64, 96, 192, 384, and of the index-2 subgroups of the relevant ones.
+  64, 96, 192, 384 (and `*_deg24.txt`: degree 24, orders 192 and 384), and of the index-2 subgroups of the relevant ones.

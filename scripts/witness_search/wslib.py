@@ -123,12 +123,13 @@ def product_of(gens, e, Ky):
     return pari.lift(d)
 
 
-def quadratic_extension(Ky, beta):
-    """Absolute polynomial (polredbest) of K(sqrt(beta)), or None if not a field."""
+def quadratic_extension(Ky, beta, reduce=True):
+    """Absolute polynomial of K(sqrt(beta)) (polredbest unless reduce=False),
+    or None if not a field."""
     rel = pari('(K,b)->rnfequation(nfinit(K), x^2 - b)')(Ky, beta)
     if not pari.polisirreducible(rel):
         return None
-    return pari.polredbest(rel)
+    return pari.polredbest(rel) if reduce else rel
 
 
 def contains_sqrt(S, q):
@@ -190,44 +191,50 @@ def _parse_dist(text):
     return {c: n / tot for c, n in d.items()}
 
 
-def _load_tables():
+def _load_tables(degree=16):
     groups, subs = [], collections.defaultdict(list)
-    path = os.path.join(TABLES, 'cycle_types_deg16.txt')
+    path = os.path.join(TABLES, f'cycle_types_deg{degree}.txt')
     for ln in open(path).read().replace('\\\n', '').replace('\n ', ' ').splitlines():
         if ln.strip():
             k, sz, gid, dist = ln.split('|')
             groups.append((int(k), int(sz), tuple(eval(gid.replace(' ', ''))), _parse_dist(dist)))
-    path = os.path.join(TABLES, 'index2_subgroups_deg16.txt')
-    for ln in open(path).read().replace('\\\n', '').replace('\n ', ' ').splitlines():
-        if ln.strip():
-            k, gid, dist = ln.split('|')
-            subs[int(k)].append((tuple(eval(gid.replace(' ', ''))), _parse_dist(dist)))
+    path = os.path.join(TABLES, f'index2_subgroups_deg{degree}.txt')
+    if os.path.exists(path):
+        for ln in open(path).read().replace('\\\n', '').replace('\n ', ' ').splitlines():
+            if ln.strip():
+                k, gid, dist = ln.split('|')
+                subs[int(k)].append((tuple(eval(gid.replace(' ', ''))), _parse_dist(dist)))
     return groups, subs
 
 
-_TABLES = None
+_TABLES = {}
 
 
-def tables():
-    global _TABLES
-    if _TABLES is None:
-        _TABLES = _load_tables()
-    return _TABLES
+def tables(degree=16):
+    """Cycle-type tables for transitive groups of the given degree (regenerate
+    with gap/cycle_types.g for degree 16, gap/cycle_types_deg24.g for 24)."""
+    if degree not in _TABLES:
+        _TABLES[degree] = _load_tables(degree)
+    return _TABLES[degree]
 
 
 def frobenius_cycle_types(f, nprimes, split_in=None, start=7):
     """Counter of factorisation patterns of f mod p over unramified p.  With
     split_in=q, only primes p with (q/p) = 1 are used (Frobenius in the
     index-2 subgroup fixing sqrt(q))."""
-    disc = int(pari.poldisc(f))
+    # p is unramified for f exactly when f mod p is squarefree of full degree,
+    # so no discriminant is needed (expensive for large f).
+    lc, deg = int(pari.pollead(f)), int(pari.poldegree(f))
     cnt, p, n = collections.Counter(), start, 0
     while n < nprimes:
         p = int(pari.nextprime(p + 1))
-        if disc % p == 0:
+        if lc % p == 0:
             continue
         if split_in is not None and pari.kronecker(split_in, p) != 1:
             continue
         fa = pari.factormod(f, p)
+        if any(int(m) > 1 for m in fa[1]):
+            continue
         degs = []
         for j in range(len(fa[0])):
             degs += [int(pari.poldegree(fa[0][j]))] * int(fa[1][j])
@@ -237,10 +244,10 @@ def frobenius_cycle_types(f, nprimes, split_in=None, start=7):
 
 
 def identify(f, order, nprimes=1500):
-    """Rank the degree-16 transitive groups of the given order by the
+    """Rank the transitive groups of degree deg(f) and the given order by the
     log-likelihood of f's Frobenius cycle types.  Groups whose class support
     misses an observed cycle type are excluded.  Returns [(loglik, k, id)]."""
-    groups, _ = tables()
+    groups, _ = tables(int(pari.poldegree(f)))
     cnt = frobenius_cycle_types(f, nprimes)
     res = []
     for k, sz, gid, dist in groups:
@@ -251,9 +258,9 @@ def identify(f, order, nprimes=1500):
 
 
 def quadratic_subgroup(f, k, q=5, nprimes=1500):
-    """Which index-2 subgroup of 16Tk is Gal(closure/Q(sqrt q))?  Ranked list
-    [(loglik or None if excluded by support, id)]."""
-    _, subs = tables()
+    """Which index-2 subgroup of nTk (n = deg f) is Gal(closure/Q(sqrt q))?
+    Ranked list [(loglik or None if excluded by support, id)]."""
+    _, subs = tables(int(pari.poldegree(f)))
     cnt = frobenius_cycle_types(f, nprimes, split_in=q)
     res = []
     for gid, dist in subs[k]:
@@ -403,3 +410,267 @@ class ConjugateData:
 
     def element(self, e):
         return product_of(self.gens, e, self.Ky)
+
+
+# --------------------------------------------------------------------------
+# Permutation modules: submodules of F2[conjugates] of a given dimension
+# --------------------------------------------------------------------------
+def embedding_permutations(K, P, embs=None, auts=None):
+    """Permutations of the embeddings K -> P induced by Gal(P/Q) (P Galois).
+
+    Computed modulo a prime p splitting completely in P, with the embeddings
+    distinguished by their values at one root r0: the automorphism s sends
+    e_i to the e_j with e_j(r0) = e_i(s(r0))."""
+    if embs is None:
+        embs = pari.nfisincl(K, P)
+    if auts is None:
+        gal = pari.galoisinit(P)
+        auts = [pari.galoispermtopol(gal, g) for g in pari('(g)->g.group')(gal)]
+    n, disc = int(pari.poldegree(P)), int(pari.poldisc(P))
+    p = 1000
+    while True:
+        p = int(pari.nextprime(p + 1))
+        if disc % p == 0:
+            continue
+        R = [int(pari.lift(r)) for r in pari.polrootsmod(P, p)]
+        if len(R) != n:
+            continue
+        r0 = R[0]
+        ev = lambda f, r: int(pari.lift(pari.Mod(pari.subst(pari.lift(f), 'x', r), p)))
+        at_r0 = [ev(e, r0) for e in embs]
+        if len(set(at_r0)) == len(embs):
+            break
+    index = {v: i for i, v in enumerate(at_r0)}
+    perms = []
+    for s_ in auts:
+        rs = ev(s_, r0)
+        perms.append([index[ev(e, rs)] for e in embs])
+    return perms
+
+
+def _span(vecs, n):
+    rows = [int(''.join(map(str, v)), 2) for v in vecs]
+    basis = []
+    for r in rows:
+        for b in basis:
+            r = min(r, r ^ b)
+        if r:
+            basis.append(r)
+    return frozenset(basis), len(basis)
+
+
+def submodules_of_dim(perms, n, r):
+    """All F2[G]-submodules of dimension r of the permutation module F2^n,
+    G generated by the given permutations.  Returned as lists of 0/1 vectors."""
+    def act(v, p):                      # v as int; coordinate i -> p[i]
+        w = 0
+        for i in range(n):
+            if (v >> (n - 1 - i)) & 1:
+                w |= 1 << (n - 1 - p[i])
+        return w
+
+    def closure(gens):
+        basis = set()
+        todo = list(gens)
+        span = {0}
+        while todo:
+            v = todo.pop()
+            if v in span:
+                continue
+            new = {x ^ v for x in span}
+            span |= new
+            for p in perms:
+                w = act(v, p)
+                if w not in span:
+                    todo.append(w)
+            if len(span) > 2 ** r:
+                return None
+        return frozenset(span)
+
+    found = set()
+    small = set()
+    for v in range(1, 2 ** n):
+        S = closure([v])
+        if S is not None:
+            small.add(S)
+    # sums of small submodules until no new ones of dimension <= r appear
+    changed = True
+    while changed:
+        changed = False
+        cur = list(small)
+        for i in range(len(cur)):
+            for j in range(i + 1, len(cur)):
+                if len(cur[i]) * len(cur[j]) > 2 ** (2 * r):
+                    continue
+                S = frozenset(a ^ b for a in cur[i] for b in cur[j])
+                if len(S) <= 2 ** r and S not in small:
+                    small.add(S)
+                    changed = True
+    for S in small:
+        if len(S) == 2 ** r:
+            found.add(S)
+    out = []
+    for S in found:
+        vecs = sorted(S - {0})
+        _, d = _span([list(map(int, format(v, f'0{n}b'))) for v in vecs], n)
+        out.append([list(map(int, format(v, f'0{n}b'))) for v in vecs])
+    return out
+
+
+def orthogonal_complement_basis(vectors, n):
+    """Basis of N^perp (standard dot product) for N spanned by vectors."""
+    if not vectors:
+        return [list(r) for r in np.eye(n, dtype=np.uint8)]
+    ker = gf2_kernel(np.array(vectors, dtype=np.uint8))
+    return [list(map(int, v)) for v in ker]
+
+
+# --------------------------------------------------------------------------
+# Exact Galois group of K(sqrt delta) by Kummer theory over a Galois field P
+# --------------------------------------------------------------------------
+def kummer_galois_group(K, P, delta, q=5):
+    """Exact Gal(L/Q) for L = Galois closure of K(sqrt delta), K a subfield of
+    the Galois field P, delta in K (polynomial in y) whose conjugates are not
+    squares.  L = P(sqrt delta_1, ..., sqrt delta_n), delta_i = e_i(delta) for
+    the embeddings e_i : K -> P.  Returns (gens, chi) where gens are
+    permutations of the 2n points (i, +/-) -> index 2*i + (0 or 1) (0-based)
+    generating Gal(L/Q), and chi[g] = 0/1 says whether the generator moves
+    sqrt(q) (q = None to skip).
+
+    Each sigma in Gal(P/Q) lifts as sqrt(delta_i) -> s_i sqrt(delta_pi(i)); the
+    sign vectors s are cut out by the multiplicative relations among the
+    delta_i, which are certified to be exact squares in P with nfroots.
+    """
+    Py = pari.subst(P, 'x', 'y')
+    nfP = pari.nfinit(Py)
+    gal = pari.galoisinit(P)
+    auts = [pari.galoispermtopol(gal, g) for g in pari('(g)->g.gen')(gal)]
+    embs = [pari.lift(pari.Mod(e, P)) for e in pari.nfisincl(K, P)]
+    n = len(embs)
+    perms = embedding_permutations(K, P, embs, auts)
+    dl = [pari.Mod(pari.subst(pari.lift(delta), 'y', e), P) for e in embs]      # delta_i in P (var x)
+
+    # relations mod squares, from Legendre symbols at split primes of P
+    disc, deg, p, cols = int(pari.poldisc(P)), int(pari.poldegree(P)), 2, []
+    while len(cols) < 40 * n:
+        p = int(pari.nextprime(p + 1))
+        if disc % p == 0:
+            continue
+        R = pari.polrootsmod(P, p)
+        if len(R) != deg:
+            continue
+        for r in pari.lift(R):
+            vals = [int(pari.lift(pari.Mod(pari.subst(pari.lift(d), 'x', r), p))) for d in dl]
+            if any(v == 0 for v in vals):
+                cols = cols                              # ramified-ish; skip this root
+                continue
+            cols.append([0 if pari.kronecker(v, p) == 1 else 1 for v in vals])
+    A = np.array(cols, dtype=np.uint8).T                 # n x m
+    rels = gf2_kernel(A.T)                               # R with sum_i R_i v_i = 0
+    rank = n - len(rels)
+    # basis indices B (independent mod squares) and, for each j not in B, a relation R_j = {j} + subset of B
+    B = []
+    for i in range(n):
+        if gf2_rank(A[B + [i]]) > len(B):
+            B.append(i)
+    assert len(B) == rank
+    Rj = {}
+    for j in range(n):
+        if j in B:
+            continue
+        for v in rels:
+            if v[j] and all(v[i] == 0 or i in B or i == j for i in range(n)):
+                Rj[j] = [i for i in range(n) if v[i]]
+                break
+        else:
+            # combine: find relation through linear algebra on columns B + [j]
+            sub = gf2_kernel(A[B + [j]].T)
+            v = sub[0]
+            Rj[j] = [([*B, j])[t] for t in range(len(v)) if v[t]]
+    def sqrt_in_P(a):
+        rts = pari.nfroots(nfP, pari('x^2') - pari.subst(pari.lift(a), 'x', 'y'))
+        if len(rts) == 0:
+            raise ValueError("relation is not a square in P (increase primes)")
+        return pari.Mod(pari.subst(pari.lift(rts[0]), 'y', 'x'), P)
+    gam = {}
+    for j, R in Rj.items():
+        prod = pari.Mod(1, P)
+        for i in R:
+            prod *= dl[i]
+        gam[j] = sqrt_in_P(prod)
+
+    def Gamma(Rset):
+        """prod_{i in Rset} r_i expressed in P, where r_j := gam_j / prod_{b in R_j, b != j} r_b."""
+        Rset = set(Rset)
+        expo = {b: (1 if b in Rset else 0) for b in B}
+        val = pari.Mod(1, P)
+        for j in Rset:
+            if j in B:
+                continue
+            val *= gam[j]
+            for b in Rj[j]:
+                if b != j:
+                    expo[b] -= 1
+        for b, e in expo.items():
+            assert e % 2 == 0, "not a relation"
+            val *= dl[b] ** (e // 2)
+        return val
+
+    def lift(s_aut, pi, sB):
+        s = {b: sB[t] for t, b in enumerate(B)}
+        for j, R in Rj.items():
+            img = pari.Mod(pari.subst(pari.lift(gam[j]), 'x', s_aut), P)
+            ratio = img / Gamma([pi[i] for i in R])
+            c = 1 if ratio == 1 else -1 if ratio == -1 else None
+            assert c is not None, "inconsistent lift"
+            prod = 1
+            for b in R:
+                if b != j:
+                    prod *= s[b]
+            s[j] = c * prod
+        perm = [0] * (2 * n)
+        for i in range(n):
+            for e in (0, 1):
+                tgt_sign = e if s[i] == 1 else 1 - e
+                perm[2 * i + e] = 2 * pi[i] + tgt_sign
+        return perm
+
+    sq = None
+    if q is not None:
+        rts = pari.nfroots(nfP, pari(f'x^2-({q})'))
+        sq = pari.Mod(pari.subst(pari.lift(rts[0]), 'y', 'x'), P) if len(rts) else None
+    gens, chi = [], []
+    ident = pari.Mod(pari('x'), P)
+    for a, pi in zip(auts, perms):
+        gens.append(lift(a, pi, [1] * rank))
+        chi.append(0 if sq is None or pari.Mod(pari.subst(pari.lift(sq), 'x', a), P) == sq else 1)
+    idperm = list(range(n))
+    for t in range(rank):
+        sB = [1] * rank
+        sB[t] = -1
+        gens.append(lift(pari('x'), idperm, sB))
+        chi.append(0)
+    return gens, chi, rank
+
+
+def gap_identify(gens, chi, degree, gap='gap'):
+    """IdGroup of the group generated by gens (0-based images), its transitive
+    identification, and IdGroup of the kernel of chi.  Uses GAP via subprocess."""
+    import subprocess, tempfile
+    cyc = lambda g: 'PermList([' + ','.join(str(x + 1) for x in g) + '])'
+    script = f'''LoadPackage("transgrp");; LoadPackage("smallgrp");;
+gens := [{','.join(cyc(g) for g in gens)}];;
+chi := {chi};;
+H := Group(gens);;
+C2 := CyclicGroup(IsPermGroup, 2);;
+hom := GroupHomomorphismByImages(H, C2, gens, List(chi, c -> C2.1^c));;
+H0 := Kernel(hom);;
+Print("RESULT ", Size(H), " ", IdGroup(H), " ", TransitiveIdentification(H), " ", Index(H, H0), " ", IdGroup(H0), "\\n");
+QUIT;
+'''
+    with tempfile.NamedTemporaryFile('w', suffix='.g', delete=False) as fh:
+        fh.write(script)
+        path = fh.name
+    out = subprocess.run([gap, '-A', '-q', '-o', '4g', path], capture_output=True, text=True, timeout=600).stdout
+    line = next((l for l in out.splitlines() if l.startswith('RESULT')), None)
+    return line

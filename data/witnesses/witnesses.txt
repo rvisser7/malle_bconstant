@@ -111,3 +111,21 @@ label|ordering|poly|source|note
 30T4156|disc|[16,-2,21,24,-18,-12,32,-16,6,-2,1]|LMFDB-10.0.20155392000000.5|residual witness for G/O3(G) = Aut(A6) = 10T35; Gal(K~/Q(sqrt-3)) = M10 (disc in -3*Q^2); expect b_witness = b_T = 2
 30T4158|disc|[103,-865,3916,-10923,21525,-32271,38022,-35547,26178,-14485,5329,-595,-501,69,435,-516,345,-156,49,-10,1]|LMFDB-10.0.35450825752503.1-compositum-Q(sqrt-3)|residual witness for G/O3(G) = C2 x PGL(2,9); Gal(K~/Q(sqrt-3)) = PGL(2,9); expect b_witness = b_T = 2
 30T4161|disc|[-6,30,-62,64,44,-188,148,-40,5,-1,1]|LMFDB-10.4.2935341711360000.1|residual witness for G/O3(G) = Aut(A6) = 10T35, signature (4,3) as required (complex conjugation in S6 \ A6); Gal(K~/Q(sqrt-3)) = PGL(2,9); expect b_witness = b_T = 2
+#
+# Degree 30, disc ordering: small leaves of the O_5 family (Oct 2026).  For
+# these, O_5(G) = C5^6 is complemented inside [G,G] and F = Q(sqrt 5); the
+# leaf H = G/O_5 (order 192 / 384) acts on 24 points with 2-blocks,
+# elementary block kernel C2^3 and block quotient C2 x A4 or C2^2 x A4.
+# Witnesses K12(sqrt delta), K12 a degree-12 subfield of (A4 closure)(sqrt 5)
+# [or (sqrt 5, sqrt c)], found with scripts/witness_search/
+# search_kummer_fixed_field.py.  Galois groups and the subgroup fixing sqrt 5
+# computed EXACTLY by Kummer theory (wslib.kummer_galois_group + GAP IdGroup);
+# PARI galoisinit cannot handle these closures.  Local conditions: the A4
+# quartic must be totally real, and for [192,199] its Frobenius at 5 must
+# not have order 2 (a double transposition), which forces [192,190].
+30T2400|disc|[16384000000,0,-311296000000,0,1370585600000,0,-1213286400000,0,378531370000,0,-39197245000,0,-979942000,0,274055750,0,-1419575,0,-407350,0,-1555,0,130,0,1]|PARI-Kummer-over-A4(x^4-x^3-10x^2+3x+20)(sqrt5)|residual witness for G/O5(G) = [192,199] (exact, Kummer); Gal(K~/Q(sqrt5)) = [96,3]; expect b_witness = b_T = 3
+30T2467|disc|[16384000000,0,-311296000000,0,1370585600000,0,-1213286400000,0,378531370000,0,-39197245000,0,-979942000,0,274055750,0,-1419575,0,-407350,0,-1555,0,130,0,1]|PARI-Kummer-over-A4(x^4-x^3-10x^2+3x+20)(sqrt5)|residual witness for G/O5(G) = [192,199] (exact, Kummer; same H as 30T2400); Gal(K~/Q(sqrt5)) = [96,3]; expect b_witness = b_T = 3
+30T2418|disc|[9765625,0,52734375,0,85546875,0,46937500,0,-1975625,0,-8442500,0,-1721875,0,153875,0,58100,0,350,0,-520,0,-10,0,1]|PARI-Kummer-over-A4(x^4-x^3-7x^2+2x+9)(sqrt5)|residual witness for G/O5(G) = [192,190] (exact, Kummer); Gal(K~/Q(sqrt5)) = [96,3]; expect b_witness = b_T = 3
+30T2778|disc|[62183736418597237890625,0,-12213570357563412187500,0,1054806151711395462500,0,-52246728733806028125,0,1614485591686700000,0,-31766048192018125,0,398555607580625,0,-3353379766000,0,22169837825,0,-113089400,0,400980,0,-815,0,1]|PARI-Kummer-over-A4(x^4-x^3-7x^2+2x+9)(sqrt5,sqrt-3)|residual witness for G/O5(G) = [384,5765] = 24T908 (exact, Kummer); Gal(K~/Q(sqrt5)) = [192,197]; expect b_witness = b_T = 3
+30T2843|disc|[62183736418597237890625,0,-12213570357563412187500,0,1054806151711395462500,0,-52246728733806028125,0,1614485591686700000,0,-31766048192018125,0,398555607580625,0,-3353379766000,0,22169837825,0,-113089400,0,400980,0,-815,0,1]|PARI-Kummer-over-A4(x^4-x^3-7x^2+2x+9)(sqrt5,sqrt-3)|residual witness for G/O5(G) = [384,5765] = 24T908 (exact, Kummer; same H as 30T2778); Gal(K~/Q(sqrt5)) = [192,197]; expect b_witness = b_T = 3
+30T2848|disc|[15625,0,-187500,0,337500,0,-100000,0,-311250,0,431250,0,-263875,0,86250,0,-12450,0,-800,0,540,0,-60,0,1]|PARI-Kummer-over-A4(x^4+8x+12)(sqrt5,sqrt-1)|residual witness for G/O5(G) = [384,5776] = 24T898 (exact, Kummer); Gal(K~/Q(sqrt5)) = [192,194]; expect b_witness = b_T = 3
