@@ -4864,7 +4864,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 30T4861|1|1|1|0|\N|\N|\N|\N
 30T4862|2|2|2|0|\N|\N|\N|\N
 30T4863|1|1|1|0|\N|\N|\N|\N
-30T4864|\N|\N|\N|\N|\N|\N|\N|\N
+30T4864|1|2|\N|4|\N|\N|\N|\N
 30T4865|1|2|2|1|\N|\N|\N|\N
 30T4866|1|2|2|1|\N|\N|\N|\N
 30T4867|1|1|1|0|\N|\N|\N|\N

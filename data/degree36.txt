@@ -120857,9 +120857,9 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 36T120854|3|3|3|0|\N|\N|\N|\N
 36T120855|3|3|3|0|\N|\N|\N|\N
 36T120856|1|1|1|0|\N|\N|\N|\N
-36T120857|\N|\N|\N|\N|\N|\N|\N|\N
+36T120857|1|2|\N|4|\N|\N|\N|\N
 36T120858|1|1|1|0|\N|\N|\N|\N
-36T120859|\N|\N|\N|\N|\N|\N|\N|\N
+36T120859|1|2|\N|4|\N|\N|\N|\N
 36T120860|3|3|3|0|\N|\N|\N|\N
 36T120861|3|3|3|0|\N|\N|\N|\N
 36T120862|2|2|2|0|\N|\N|\N|\N
@@ -120901,7 +120901,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 36T120898|3|3|3|0|\N|\N|\N|\N
 36T120899|3|3|3|0|\N|\N|\N|\N
 36T120900|3|3|3|0|\N|\N|\N|\N
-36T120901|\N|\N|\N|\N|\N|\N|\N|\N
+36T120901|1|2|\N|4|\N|\N|\N|\N
 36T120902|1|1|1|0|\N|\N|\N|\N
 36T120903|1|1|1|0|\N|\N|\N|\N
 36T120904|3|3|3|0|\N|\N|\N|\N

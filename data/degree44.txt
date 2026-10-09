@@ -1979,7 +1979,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 44T1976|3|3|3|0|\N|\N|\N|\N
 44T1977|1|1|1|0|\N|\N|\N|\N
 44T1978|7|7|7|0|\N|\N|\N|\N
-44T1979|\N|\N|\N|\N|\N|\N|\N|\N
+44T1979|2|3|\N|4|\N|\N|\N|\N
 44T1980|2|2|2|0|\N|\N|\N|\N
 44T1981|1|1|1|0|\N|\N|\N|\N
 44T1982|1|1|1|0|\N|\N|\N|\N
@@ -2022,10 +2022,10 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 44T2019|1|1|1|0|\N|\N|\N|\N
 44T2020|2|2|2|0|\N|\N|\N|\N
 44T2021|1|1|1|0|\N|\N|\N|\N
-44T2022|\N|\N|\N|\N|\N|\N|\N|\N
+44T2022|2|3|\N|4|\N|\N|\N|\N
 44T2023|2|2|2|0|\N|\N|\N|\N
-44T2024|\N|\N|\N|\N|\N|\N|\N|\N
-44T2025|\N|\N|\N|\N|\N|\N|\N|\N
+44T2024|2|3|\N|4|\N|\N|\N|\N
+44T2025|2|3|\N|4|\N|\N|\N|\N
 44T2026|1|1|1|0|\N|\N|\N|\N
 44T2027|2|2|2|0|\N|\N|\N|\N
 44T2028|2|2|2|0|\N|\N|\N|\N
