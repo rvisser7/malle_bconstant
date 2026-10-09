@@ -469,7 +469,7 @@ def run_chunk(args):
     re-queues them one per chunk, so one slow group cannot take others down
     with it).
     """
-    n, indices, workdir, magma, entry, magma_dir, timeout, known_lowers = args
+    n, indices, workdir, magma, entry, magma_dir, timeout, known_lowers, memlimit = args
     tag = f"{n}_{indices[0]}_{indices[-1]}_{len(indices)}"
     idxfile = os.path.join(workdir, f"idx_{tag}.txt")
     outfile = os.path.join(workdir, f"out_{tag}.txt")
@@ -496,6 +496,8 @@ def run_chunk(args):
            f"idxfile:={idxfile}", f"outfile:={outfile}"]
     if knownlowerfile is not None:
         cmd.append(f"knownlowerfile:={knownlowerfile}")
+    if memlimit:
+        cmd.append(f"memlimit:={int(memlimit * 2**30)}")
     cmd.append(entry)
     timed_out = False
     proc = None
@@ -512,6 +514,19 @@ def run_chunk(args):
     if not timed_out and (proc.returncode != 0 or not os.path.exists(outfile)):
         why = (f"exit code {proc.returncode}" if proc.returncode != 0
                else "produced no output file")
+        if proc.returncode < 0:
+            # subprocess reports death by signal N as -N.  Our own --timeout
+            # never lands here (that is TimeoutExpired), so the signal came
+            # from outside: SIGTERM (15) from a memory-pressure killer
+            # (systemd-oomd, earlyoom) or a job scheduler, SIGKILL (9) from
+            # the kernel OOM killer.
+            try:
+                import signal as _signal
+                sig = _signal.Signals(-proc.returncode).name
+            except (ValueError, AttributeError):
+                sig = f"signal {-proc.returncode}"
+            why += (f" (killed by {sig} from outside Magma -- usually memory "
+                    f"pressure; try fewer --workers or --memlimit-gb)")
         out = (proc.stdout or "").strip()
         tail = "\n".join(out.splitlines()[-15:]) if out else "(no output)"
 
@@ -567,6 +582,11 @@ def main():
     ap.add_argument("--timeout", type=float, default=None, metavar="SEC",
                     help="kill a Magma chunk after this many seconds; the rows "
                          "stay \\N and are retried next run (default: no limit)")
+    ap.add_argument("--memlimit-gb", type=float, default=None, metavar="GB",
+                    help="pass memlimit:= to Magma, which calls SetMemoryLimit, "
+                         "so a group that needs more memory than this fails "
+                         "inside Magma instead of the whole machine running out "
+                         "(default: no limit)")
     ap.add_argument("--magma-dir", default=MAGMA_DIR,
                     help="directory containing the Magma entry points and lib/ "
                          "(default: <repo>/magma)")
@@ -773,7 +793,7 @@ def main():
         return rows
 
     payloads = [(n, c, workdir, args.magma, entry, args.magma_dir, args.timeout,
-                 known_lower_rows(n, c))
+                 known_lower_rows(n, c), args.memlimit_gb)
                 for (n, c) in tasks]
     done_chunks = defaultdict(int)
     n_failed = [0]                # so the first failure can be shown in full
@@ -821,9 +841,16 @@ def main():
                                   f"{chunk[0]}..{chunk[-1]}:\n{e}")
                             print("!" * 60 + "\n", flush=True)
                         else:
+                            first = str(e).splitlines()[0] if str(e) else ""
                             print(f"[ERR ] degree {n} chunk {chunk[0]}..{chunk[-1]}: "
-                                  f"{type(e).__name__} (left as \\N, will retry)",
+                                  f"{type(e).__name__}: {first} (left as \\N, will retry)",
                                   flush=True)
+                        # Every failed chunk goes to the error log, not just
+                        # the first, so that a run can be diagnosed afterwards.
+                        first = str(e).splitlines()[0] if str(e) else type(e).__name__
+                        for i in chunk:
+                            log_line(args.error_log,
+                                     f"{n}T{i}\t{args.ordering}\tPROCESS\t{first}")
                         done_chunks[n] += 1
                         continue
 
@@ -832,7 +859,7 @@ def main():
                     if unfinished and len(chunk) > 1:
                         for i in unfinished:
                             one_known = [r for r in p[7] if r[0] == i]
-                            q = (n, [i], p[2], p[3], p[4], p[5], p[6], one_known)
+                            q = (n, [i], p[2], p[3], p[4], p[5], p[6], one_known, p[8])
                             futs[ex.submit(run_chunk, q)] = q
                         expected[n] += len(unfinished)
                         print(f"[requ] degree {n}: {len(unfinished)} unfinished "

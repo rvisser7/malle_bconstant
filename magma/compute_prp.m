@@ -43,6 +43,7 @@ load "lib/driver.m";
 // ---------------------------------------------------------------------
 if assigned n then
     n_int := StringToInteger(n);
+    if assigned memlimit then SetMemoryLimit(StringToInteger(memlimit)); end if;
     if assigned outfile then out := outfile; else out := Sprintf("bconst_results_%o.txt", n_int); end if;
     if assigned idxfile then
         raw := Read(idxfile);
@@ -57,6 +58,6 @@ if assigned n then
         ComputeIndices(n_int, indices, out);
     end if;
 else
-    print "Error: no degree. Use: magma -b n:=<degree> [idxfile:=path] [outfile:=path] [knownlowerfile:=path] compute_prp.m";
+    print "Error: no degree. Use: magma -b n:=<degree> [idxfile:=path] [outfile:=path] [knownlowerfile:=path] [memlimit:=bytes] compute_prp.m";
 end if;
 quit;
