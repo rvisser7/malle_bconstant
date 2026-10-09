@@ -313414,7 +313414,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 40T313411|2|2|2|0|\N|\N|\N|\N
 40T313412|2|3|\N|4|\N|\N|\N|\N
 40T313413|2|2|2|0|\N|\N|\N|\N
-40T313414|\N|\N|\N|\N|\N|\N|\N|\N
+40T313414|2|3|\N|4|\N|\N|\N|\N
 40T313415|4|4|4|0|\N|\N|\N|\N
 40T313416|3|3|3|0|\N|\N|\N|\N
 40T313417|3|3|3|0|\N|\N|\N|\N
@@ -313504,7 +313504,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 40T313501|2|2|2|0|\N|\N|\N|\N
 40T313502|2|2|2|0|\N|\N|\N|\N
 40T313503|2|2|2|0|\N|\N|\N|\N
-40T313504|\N|\N|\N|\N|\N|\N|\N|\N
+40T313504|2|3|\N|4|\N|\N|\N|\N
 40T313505|2|2|2|0|\N|\N|\N|\N
 40T313506|2|2|2|0|\N|\N|\N|\N
 40T313507|1|1|1|0|\N|\N|\N|\N

@@ -1953,7 +1953,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 44T1950|1|1|1|0|\N|\N|\N|\N
 44T1951|1|1|1|0|\N|\N|\N|\N
 44T1952|1|1|1|0|\N|\N|\N|\N
-44T1953|\N|\N|\N|\N|\N|\N|\N|\N
+44T1953|2|3|\N|4|\N|\N|\N|\N
 44T1954|1|1|1|0|\N|\N|\N|\N
 44T1955|2|2|2|0|\N|\N|\N|\N
 44T1956|2|2|2|0|\N|\N|\N|\N

@@ -8898,7 +8898,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 42T8895|1|1|1|0|\N|\N|\N|\N
 42T8896|1|2|2|1|\N|\N|\N|\N
 42T8897|1|1|1|0|\N|\N|\N|\N
-42T8898|\N|\N|\N|\N|\N|\N|\N|\N
+42T8898|1|2|\N|4|\N|\N|\N|\N
 42T8899|1|2|2|1|\N|\N|\N|\N
 42T8900|1|2|2|1|\N|\N|\N|\N
 42T8901|1|1|1|0|\N|\N|\N|\N
@@ -8999,7 +8999,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 42T8996|1|1|1|0|\N|\N|\N|\N
 42T8997|1|1|1|0|\N|\N|\N|\N
 42T8998|1|1|1|0|\N|\N|\N|\N
-42T8999|\N|\N|\N|\N|\N|\N|\N|\N
+42T8999|1|2|\N|4|\N|\N|\N|\N
 42T9000|1|1|1|0|\N|\N|\N|\N
 42T9001|1|1|1|0|\N|\N|\N|\N
 42T9002|1|1|1|0|\N|\N|\N|\N
