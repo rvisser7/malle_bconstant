@@ -267,14 +267,18 @@ def compare_row(label, old, new, colnames):
 def parse_outfile(outfile):
     """Read a (possibly partial) Magma output file.
 
-    Lines are  index|b_M|b_T|lo|up[|seconds]  or  index|ERROR|message.
-    Returns (results, errors, seconds) keyed by group index.  Anything
-    unparseable -- e.g. a last line cut off by a kill -- is ignored, so that
-    group simply counts as unfinished.
+    Lines are  index|b_M|b_T|lo|up[|seconds[|phase1]]  or  index|ERROR|message.
+    Returns (results, errors, seconds, provisional): the first three keyed by
+    group index, provisional the set of indices whose latest result line is
+    the Phase-1-only line index|b_M|b_T|b_M|b_T|seconds|phase1 (b_T exact,
+    b_W bracket still trivial).  A later full line for the same index clears
+    it; a later ERROR line (Phase 2 failed) keeps the Phase 1 values.
+    Anything unparseable -- e.g. a last line cut off by a kill -- is ignored,
+    so that group simply counts as unfinished.
     """
-    results, errors, seconds = {}, {}, {}
+    results, errors, seconds, provisional = {}, {}, {}, set()
     if not os.path.exists(outfile):
-        return results, errors, seconds
+        return results, errors, seconds, provisional
     with open(outfile) as f:
         for ln in f:
             ln = ln.strip()
@@ -294,12 +298,16 @@ def parse_outfile(outfile):
                 results[i] = tuple(int(x) for x in parts[1:5])
             except ValueError:
                 continue
+            if len(parts) >= 7 and parts[6].strip() == "phase1":
+                provisional.add(i)
+            else:
+                provisional.discard(i)
             if len(parts) >= 6:
                 try:
                     seconds[i] = float(parts[5])
                 except ValueError:
                     pass
-    return results, errors, seconds
+    return results, errors, seconds, provisional
 
 
 def _iter_logical_lines(path):
@@ -469,7 +477,8 @@ def run_chunk(args):
     re-queues them one per chunk, so one slow group cannot take others down
     with it).
     """
-    n, indices, workdir, magma, entry, magma_dir, timeout, known_lowers, memlimit = args
+    (n, indices, workdir, magma, entry, magma_dir, timeout, known_lowers,
+     memlimit, phase1_only) = args
     tag = f"{n}_{indices[0]}_{indices[-1]}_{len(indices)}"
     idxfile = os.path.join(workdir, f"idx_{tag}.txt")
     outfile = os.path.join(workdir, f"out_{tag}.txt")
@@ -498,6 +507,8 @@ def run_chunk(args):
         cmd.append(f"knownlowerfile:={knownlowerfile}")
     if memlimit:
         cmd.append(f"memlimit:={int(memlimit * 2**30)}")
+    if phase1_only:
+        cmd.append("phase1only:=1")
     cmd.append(entry)
     timed_out = False
     proc = None
@@ -551,9 +562,14 @@ def run_chunk(args):
             f"    cwd:     {magma_dir}\n"
             f"    --- last lines of Magma output ---\n{tail}{hint}")
 
-    results, errors, seconds = parse_outfile(outfile)
-    unfinished = [i for i in indices if i not in results and i not in errors]
-    return n, results, errors, seconds, unfinished, timed_out
+    results, errors, seconds, provisional = parse_outfile(outfile)
+    # A group with only its Phase 1 line was cut off during Phase 2 (unless
+    # Phase 2 was skipped on purpose).  Its b_M/b_T are still returned.
+    if phase1_only:
+        provisional = set()
+    unfinished = [i for i in indices
+                  if (i not in results or i in provisional) and i not in errors]
+    return n, results, errors, seconds, unfinished, timed_out, provisional
 
 
 # --------------------------------------------------------------------------
@@ -582,6 +598,10 @@ def main():
     ap.add_argument("--timeout", type=float, default=None, metavar="SEC",
                     help="kill a Magma chunk after this many seconds; the rows "
                          "stay \\N and are retried next run (default: no limit)")
+    ap.add_argument("--phase1-only", action="store_true",
+                    help="compute only b_M and b_T (skip the Phase 2 b_W "
+                         "search); rows get status 0 or 4. A later "
+                         "--retry-unresolved run does Phase 2")
     ap.add_argument("--memlimit-gb", type=float, default=None, metavar="GB",
                     help="pass memlimit:= to Magma, which calls SetMemoryLimit, "
                          "so a group that needs more memory than this fails "
@@ -664,6 +684,8 @@ def main():
 
     if args.verify_sample is not None and not args.verify:
         ap.error("--verify-sample only makes sense with --verify")
+    if args.phase1_only and args.verify:
+        ap.error("--verify needs the full computation; drop --phase1-only.")
     if args.retry_unresolved and args.verify:
         ap.error("--retry-unresolved writes; --verify does not. Pick one.")
     if args.force_overwrite and not args.retry_unresolved:
@@ -793,7 +815,7 @@ def main():
         return rows
 
     payloads = [(n, c, workdir, args.magma, entry, args.magma_dir, args.timeout,
-                 known_lower_rows(n, c), args.memlimit_gb)
+                 known_lower_rows(n, c), args.memlimit_gb, args.phase1_only)
                 for (n, c) in tasks]
     done_chunks = defaultdict(int)
     n_failed = [0]                # so the first failure can be shown in full
@@ -832,7 +854,8 @@ def main():
                     p = futs.pop(fut)
                     n, chunk = p[0], p[1]
                     try:
-                        _, results, errors, seconds, unfinished, timed_out = fut.result()
+                        (_, results, errors, seconds, unfinished, timed_out,
+                         provisional) = fut.result()
                     except Exception as e:
                         n_failed[0] += 1
                         if n_failed[0] == 1:
@@ -859,7 +882,8 @@ def main():
                     if unfinished and len(chunk) > 1:
                         for i in unfinished:
                             one_known = [r for r in p[7] if r[0] == i]
-                            q = (n, [i], p[2], p[3], p[4], p[5], p[6], one_known, p[8])
+                            q = (n, [i], p[2], p[3], p[4], p[5], p[6], one_known,
+                                 p[8], p[9])
                             futs[ex.submit(run_chunk, q)] = q
                         expected[n] += len(unfinished)
                         print(f"[requ] degree {n}: {len(unfinished)} unfinished "
@@ -869,8 +893,20 @@ def main():
                         why = "timed out" if timed_out else "no output"
                         n_failed[0] += 1      # never checked: --verify must not pass
                         for i in unfinished:
-                            print(f"[TIME] {n}T{i}: {why} (left as \\N)", flush=True)
-                            log_line(args.error_log, f"{n}T{i}\t{args.ordering}\t{why}")
+                            if i in provisional and not args.verify:
+                                print(f"[TIME] {n}T{i}: {why} in Phase 2 (b_M, b_T "
+                                      f"written, b_W left as \\N)", flush=True)
+                                log_line(args.error_log,
+                                         f"{n}T{i}\t{args.ordering}\t{why} in Phase 2")
+                            else:
+                                print(f"[TIME] {n}T{i}: {why} (left as \\N)", flush=True)
+                                log_line(args.error_log, f"{n}T{i}\t{args.ordering}\t{why}")
+
+                    # A Phase-1-only result says nothing new about b_W, so a
+                    # --verify pass must not compare it against the data.
+                    if args.verify and provisional:
+                        results = {i: r for i, r in results.items()
+                                   if i not in provisional}
 
                     for i, msg in errors.items():
                         print(f"[MERR] {n}T{i}: {msg}", flush=True)
@@ -883,6 +919,12 @@ def main():
                     st = state[n]
                     for i, (bM, bT, lo, up) in results.items():
                         row = st["idx_to_row"][i]
+                        # A Phase-1-only result (--phase1-only, or Phase 2 cut
+                        # off) only fills rows whose b_T is still blank; any
+                        # row with b_T already has at least as much.
+                        if ((args.phase1_only or i in provisional)
+                                and row[target_offsets[1]] != NULL):
+                            continue
                         lo, wconflict = apply_witness(f"{n}T{i}", bM, bT, lo, up,
                                                       witnesses)
                         if wconflict is not None:

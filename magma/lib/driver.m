@@ -32,6 +32,15 @@
 //     index|b_M|b_T|BW_lower_split|BW_upper_local|seconds
 //     index|ERROR|message
 //
+// As soon as Phase 1 (b_M, b_T) is done, a provisional line
+//
+//     index|b_M|b_T|b_M|b_T|seconds|phase1
+//
+// is written first, so b_T is on disk even if Phase 2 later runs out of
+// time. [b_M, b_T] is the trivial bracket for b_W. The final line, if
+// Phase 2 finishes, comes later and supersedes it. With Phase1Only (CLI
+// phase1only:=1) Phase 2 is skipped and only the provisional line is written.
+//
 // A Magma error in one group is caught and recorded instead of abandoning
 // the rest of the chunk.
 
@@ -75,20 +84,31 @@ KnownLowerForIndex := function(rows, i)
     return false, 0, -1, -1;
 end function;
 
-ComputeIndices := procedure(n, indices, outfile : KnownLowers := false)
+ComputeIndices := procedure(n, indices, outfile : KnownLowers := false,
+                             Phase1Only := false)
     Write(outfile, "index|b_M|b_T|BW_lower_split|BW_upper_local|seconds" : Overwrite := true);
     for i in indices do
         t0 := Cputime();
         failed := false;
+        finished := false;
         msg := "";
         try
             G := TransitiveGroup(n, i);
-            hasKnown, knownLower, knownBM, knownBT := KnownLowerForIndex(KnownLowers, i);
-            if hasKnown then
-                R := FullCheck(G : KnownLower := knownLower, KnownBM := knownBM,
-                                   KnownBT := knownBT);
-            else
-                R := FullCheck(G);
+            d, a, nSmin, nPairs, bM, bT, evaluated_pairs := EvaluatePairs(G);
+            Write(outfile, Sprintf("%o|%o|%o|%o|%o|%o|phase1", i, bM, bT, bM, bT,
+                                   Round(Cputime(t0))));
+            printf "  %oT%o: b_M=%o b_T=%o (Phase 1, %os)\n",
+                   n, i, bM, bT, Round(Cputime(t0));
+            if not Phase1Only then
+                P1 := < d, a, nSmin, nPairs, bM, bT, evaluated_pairs >;
+                hasKnown, knownLower, knownBM, knownBT := KnownLowerForIndex(KnownLowers, i);
+                if hasKnown then
+                    R := FullCheck(G : KnownLower := knownLower, KnownBM := knownBM,
+                                       KnownBT := knownBT, Phase1 := P1);
+                else
+                    R := FullCheck(G : Phase1 := P1);
+                end if;
+                finished := true;
             end if;
         catch err
             failed := true;
@@ -100,6 +120,7 @@ ComputeIndices := procedure(n, indices, outfile : KnownLowers := false)
             printf "  %oT%o: ERROR %o\n", n, i, msg;
             continue;
         end if;
+        if not finished then continue; end if;
 
         secs := Round(Cputime(t0));
         Write(outfile, Sprintf("%o|%o|%o|%o|%o|%o", i, R`b_M, R`b_T,

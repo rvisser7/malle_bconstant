@@ -83,9 +83,15 @@ end function;
 
 FullCheck := function(
     G : Policy := DefaultLocalPolicy, SupplementDepth := 0, MaxQuotients := 60,
-        KnownLower := 0, KnownBM := -1, KnownBT := -1
+        KnownLower := 0, KnownBM := -1, KnownBT := -1, Phase1 := false
 )
-    d, a, num_Smin, nPairs, bM, bT, evaluated_pairs := EvaluatePairs(G);
+    // Phase1, if given, is the tuple of values EvaluatePairs(G) returned, so
+    // a caller that has already written b_M/b_T need not recompute them.
+    if Type(Phase1) eq BoolElt then
+        d, a, num_Smin, nPairs, bM, bT, evaluated_pairs := EvaluatePairs(G);
+    else
+        d, a, num_Smin, nPairs, bM, bT, evaluated_pairs := Explode(Phase1);
+    end if;
 
     // A verified witness may be fed into Phase 2 before the expensive local
     // and certificate search.  When its stored Phase-1 values are supplied,
