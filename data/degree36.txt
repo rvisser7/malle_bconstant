@@ -111481,8 +111481,8 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 36T111478|1|1|1|0|\N|\N|\N|\N
 36T111479|1|1|1|0|\N|\N|\N|\N
 36T111480|1|1|1|0|\N|\N|\N|\N
-36T111481|\N|\N|\N|\N|\N|\N|\N|\N
-36T111482|\N|\N|\N|\N|\N|\N|\N|\N
+36T111481|1|2|2|1|\N|\N|\N|\N
+36T111482|1|2|2|1|\N|\N|\N|\N
 36T111483|1|2|\N|4|\N|\N|\N|\N
 36T111484|1|1|1|0|\N|\N|\N|\N
 36T111485|1|2|2|1|\N|\N|\N|\N
