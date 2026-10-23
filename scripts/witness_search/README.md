@@ -155,7 +155,11 @@ N(d) in Q^2 -> 24T14623 (30T4836), disc -> 14626 (4838), 5 disc -> 14620 (4837),
 5 -> 14617 (4833).  The statistics of `search_twisted_kummer.py` only confirm
 (24T7242/7243/7246 are exact twins).  30T4059 is the degree-12 case
 K6(sqrt d) itself (12T256, the non-split extension, needs N(d) in disc Q^2 =
-5 Q^2).  Not every sextic works: the norm map of some sextics misses the
+5 Q^2).  The fibre-product argument needs d generic: d in Q* eta K6*^2, with
+K6(sqrt eta) inside the closure of K6, collapses the group (the first 30T4064
+witness had order 240), so `search_twisted_kummer.py` checks that K6(sqrt d)
+has the full order (likelihood over all degree-12 groups) before using d; for
+some sextics every norm-square S-unit is of that kind.  Not every sextic works: the norm map of some sextics misses the
 class needed (the script then says so); another sextic fixes that.
 
 ### Orders 3072 and the H0 screen

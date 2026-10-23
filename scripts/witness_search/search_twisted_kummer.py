@@ -29,6 +29,7 @@ Example (30T4064 -> 24T7243; --norm-class 5 gives 24T7242 for 30T4065):
       --mu "(5+s)/2" --norm-class 1 --order 3840 --targets 7242,7243,7246 --per 10
 """
 import argparse
+import math
 import random
 import sys
 import time
@@ -51,6 +52,7 @@ def main():
     ap.add_argument('--targets', required=True, help='comma-separated transitive ids (degree 4 deg K)')
     ap.add_argument('--per', type=int, default=60, help='candidates per (a, mu) combination')
     ap.add_argument('--all', action='store_true', help='keep going after a target is found')
+    ap.add_argument('--no-d-check', action='store_true', help='skip the check that K(sqrt d) has the full group')
     ap.add_argument('--seed', type=int, default=1)
     args = ap.parse_args()
     t0 = time.time()
@@ -96,6 +98,28 @@ def main():
     b_y = pari.subst(pari.lift(b_img), 'x', 'y')
     mus = [pari(m.strip()) for m in args.mu.split(',')]
 
+    # The fibre-product argument needs the conjugates of d to be as independent as the norm class
+    # allows: Gal(K(sqrt d)) must have order 2^(n-1)|G| (N(d) in Q*^2 or disc Q*^2) or 2^n |G|.
+    # A d in Q* eta K*^2 with K(sqrt eta) inside the closure of K collapses it (30T4064, Oct 2026:
+    # the first witness had a group of order 240).  Checked by cycle-type likelihood over ALL
+    # transitive groups of degree 2n (needs tables/cycle_types_deg<2n>.txt).
+    G_order = int(pari.polgalois(K)[0]) if n <= 11 else None
+    disc_class = int(pari.core(pari.nfdisc(K)))
+    check_d = G_order is not None and not args.no_d_check
+    if check_d:
+        all_groups = wslib.tables(2 * n)[0]
+
+    def d_part_ok(d, acls):
+        Md = wslib.quadratic_extension(Ky, d, reduce=False)
+        if Md is None:
+            return False
+        cnt = wslib.frobenius_cycle_types(Md, 600)
+        best = max(((sum(m * math.log(dist[c]) for c, m in cnt.items()), sz)
+                    for k_, sz, gid, dist in all_groups if all(c in dist for c in cnt)), default=None)
+        sq = int(pari.core(acls)) in (1, disc_class)
+        want = G_order * 2 ** (n - 1 if sq else n)
+        return best is not None and best[1] == want
+
     found = set()
     for acls in [int(t) for t in args.norm_class.split(',')]:
         t = np.array(rational_vector(acls, Sprimes), dtype=np.uint8)
@@ -114,6 +138,9 @@ def main():
                 if tries > args.per:
                     break
                 d = wslib.product_of(gens, e, Ky)
+                if check_d and not d_part_ok(d, acls):
+                    stats['d-degenerate'] = stats.get('d-degenerate', 0) + 1
+                    continue
                 delta = pari.lift(pari.subst(pari.lift(d), 'y', pari.Mod(a_y, Kpy)) * mu_y)
                 M = pari('(nf,b)->rnfequation(nf, x^2 - b)')(nfKp, delta)
                 if not pari.polisirreducible(M):
