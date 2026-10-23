@@ -306,6 +306,34 @@ WitnessAutList := function(Gam : Cap := 200000)
     return list;
 end function;
 
+// One automorphism from each coset of Inn(Gam) in Aut(Gam).
+//
+// The quotient-witness search only needs these.  If aut' = c . aut with c
+// inner, then alpha' = iso . aut' is alpha followed by an inner automorphism
+// of G/M.  N0g is normal in Gam (it contains [Gam,Gam]), so alpha' gives the
+// same kernel N, and conjugation disappears under every pi, because each pi
+// has abelian image and kernel N, which contains M.  So the Frobenius test,
+// the twisted pairs and hence b are the same for aut and aut'.  The same
+// argument applies to the twisting automorphisms beta.
+//
+// Cosets are found by marking, for each new representative a, the images
+// [ a(x)^y : x in gens ] for all y in Gam.  This takes #Out * #Gam steps.
+WitnessAutReps := function(Gam, auts)
+    gg := [ Gam.i : i in [1..Ngens(Gam)] ];
+    elts := [ y : y in Gam ];
+    seen := {};
+    reps := [];
+    for a in auts do
+        k := [ a(x) : x in gg ];
+        if k in seen then continue; end if;
+        Append(~reps, a);
+        for y in elts do
+            Include(~seen, [ z^y : z in k ]);
+        end for;
+    end for;
+    return reps;
+end function;
+
 // alpha = iso . aut : Gam -> Gam -> G/M.  A plain function rather than a
 // func<> closure, so that nothing depends on how loop variables are captured.
 WitnessAlpha := function(iso, aut, x)
@@ -456,8 +484,28 @@ VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
         error Sprintf("Galois group has order %o, which does not divide #G = %o", #Gam, #G);
     end if;
 
+    t0 := Cputime();
     d, a, nS, nP, bM, bT, ev := EvaluatePairs(G);
+    printf "    [time] %o: EvaluatePairs %os\n", label, Cputime(t0);
+    t0 := Cputime();
     N0g, res := WitnessCyclotomicPart(Gam, S, d);
+    printf "    [time] %o: cyclotomic part %os\n", label, Cputime(t0);
+
+    // Kernel and residues of every pair, computed once: they depend on
+    // neither M nor the automorphism.  (They used to be recomputed for every
+    // automorphism of Gam.)
+    t0 := Cputime();
+    evK := [ Kernel(item[2]`pi) : item in ev ];
+    evR := [ KernelResidues(item[2], d) : item in ev ];
+
+    // Automorphisms of Gam up to inner ones (see WitnessAutReps), and those
+    // that fix N0g.  Also independent of M.
+    auts := WitnessAutReps(Gam, WitnessAutList(Gam));
+    stab := [ bta : bta in auts
+              | sub< Gam | [ bta(x) : x in Generators(N0g) ] > eq N0g ];
+    printf "    [time] %o: kernels and %o automorphisms mod inner (%o fix N0) %os\n",
+           label, #auts, #stab, Cputime(t0);
+    t0 := Cputime();
 
     // Do NOT return early when F = Q.  We must first prove that Gal(f) really
     // occurs as an admissible quotient G/M; otherwise an unrelated group of
@@ -494,13 +542,10 @@ VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
         if not isIso then continue; end if;
         tried +:= 1;
 
-        auts := WitnessAutList(Gam);
-        stab := [ bta : bta in auts
-                  | sub< Gam | [ bta(x) : x in Generators(N0g) ] > eq N0g ];
         for aut in auts do
             N := sub< Q | [ WitnessAlpha(iso, aut, x) : x in Generators(N0g) ] > @@ q;
-            cands := [ item : item in ev |
-                       Kernel(item[2]`pi) eq N and KernelResidues(item[2], d) eq res ];
+            cands := [ ev[j] : j in [1..#ev] |
+                       evR[j] eq res and #evK[j] eq #N and evK[j] eq N ];
             if #cands eq 0 then continue; end if;   // kernel has no minimal element
 
             surv := cands;
@@ -535,6 +580,8 @@ VerifyQuotientWitnessCore := function(label, f, Gam, S : MaxPrimes := 300)
         end for;
     end for;
 
+    printf "    [time] %o: quotient search (%o quotients) %os\n", label, tried, Cputime(t0);
+
     if tried eq 0 then
         error Sprintf("no admissible normal M of %o with G/M isomorphic to Gal(f) (order %o)",
                       label, #Gam);
@@ -560,15 +607,26 @@ end function;
 // fall back to the abstract quotient search, EVEN WHEN Degree(f) = n.  This
 // lets a field for a different transitive representation of the same abstract
 // group witness the target representation as well.
-VerifyAnyWitness := function(label, coeffs : MaxPrimes := 300)
+//
+// Galois, if given, is <Gam, S> from WitnessProvenGaloisGroup(f) for this
+// same polynomial, so that a polynomial offered for several labels has its
+// Galois group computed and proven only once.
+VerifyAnyWitness := function(label, coeffs : MaxPrimes := 300, Galois := false)
     parts := Split(label, "T");
     if #parts ne 2 then error "bad label " cat label; end if;
     n := StringToInteger(parts[1]);
     k := StringToInteger(parts[2]);
 
     f := Polynomial(Integers(), coeffs);
-    if not IsIrreducible(f) then error "polynomial is reducible"; end if;
-    Gam, _, S := WitnessProvenGaloisGroup(f);
+    if Type(Galois) eq BoolElt then
+        if not IsIrreducible(f) then error "polynomial is reducible"; end if;
+        t0 := Cputime();
+        Gam, _, S := WitnessProvenGaloisGroup(f);
+        printf "    [time] %o: Galois group and proof %os\n", label, Cputime(t0);
+    else
+        Gam := Galois[1];
+        S := Galois[2];
+    end if;
 
     sameRep := false;
     if Degree(f) eq n then
@@ -626,6 +684,7 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName :
     end if;
     reused := 0;
     verified := 0;
+    galCache := AssociativeArray();     // polynomial -> <Gam, S>
 
     // Use a raw IO channel rather than Write(filename, object).  The latter
     // goes through Magma's output pretty-printer and may wrap long rows with
@@ -668,8 +727,17 @@ VerifyWitnessFile := procedure(infile, outfile, orderingName :
                 continue;
             end if;
             try
+                ckey := WitnessCoeffString(coeffs);
+                if not IsDefined(galCache, ckey) then
+                    fpol := Polynomial(Integers(), coeffs);
+                    if not IsIrreducible(fpol) then error "polynomial is reducible"; end if;
+                    t0 := Cputime();
+                    Gam0, _, S0 := WitnessProvenGaloisGroup(fpol);
+                    printf "    [time] %o: Galois group and proof %os\n", label, Cputime(t0);
+                    galCache[ckey] := < Gam0, S0 >;
+                end if;
                 b, exact, bM, bT, nsurv, why := VerifyAnyWitness(
-                    label, coeffs : MaxPrimes := MaxPrimes
+                    label, coeffs : MaxPrimes := MaxPrimes, Galois := galCache[ckey]
                 );
             catch err
                 failed := true;
