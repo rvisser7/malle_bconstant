@@ -274,7 +274,9 @@ end function;
 
 // All automorphisms of Gam, by closure over the generators of
 // AutomorphismGroup(Gam).  Elements are GrpAutoElt, applied as a(x).
-WitnessAutList := function(Gam : Cap := 20000)
+// Cap only guards against runaway memory: 24T1585 (the quotient used for
+// 30T3045) already has 24,576 automorphisms.
+WitnessAutList := function(Gam : Cap := 200000)
     A := AutomorphismGroup(Gam);
     gg := [ Gam.i : i in [1..Ngens(Gam)] ];
     key := func< a | [ a(x) : x in gg ] >;
