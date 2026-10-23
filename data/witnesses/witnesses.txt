@@ -194,3 +194,17 @@ label|ordering|poly|source|note
 # order; H0 then follows from sqrt5 in K12.  Not checked exactly (P has degree 96).
 30T3908|disc|[3448346465570564006952447760683761664000000,0,-14635607230158239299007563417829376000000,0,10264429450988973072301871807078400000,0,17813709291288348535135054233600000,0,-10370005308937731536677946880000,0,-10312772867386136385177600000,0,956168000646215425344000,0,2384571888330229296000,0,725556700938308400,0,94227713737800,0,5585310245,0,135575,0,1]|PARI-Kummer-over-S4(x^4-x^3-5x^2+5x+1)(sqrt5,sqrt29)|residual witness for G/O5(G) = 24T5741 (order 3072; statistical, no twins); sqrt5 in K12 so Gal(K~/Q(sqrt5)) = index-2 subgroup at signature position 2; expect b_witness = b_T = 4
 30T3953|disc|[21396738559320853931074343245415424000000,0,1096861564782491341374985706865792000000,0,12272664753713667018252576677904000000,0,10349062468304079844336593470400000,0,-107800369607507341665470460480000,0,-95032850504773133640782160000,0,103482412025749057336824000,0,61406038729088378832000,0,6418274061110388400,0,-20091725969400,0,-7460498040,0,-11670,0,1]|PARI-Kummer-over-S4(x^4-x^3-5x^2+5x+1)(sqrt5,sqrt29)|residual witness for G/O5(G) = 24T5733 (order 3072; statistical, no twins); sqrt5 in K12 so Gal(K~/Q(sqrt5)) = index-2 subgroup at signature position 2; expect b_witness = b_T = 4
+#
+# Degree 32 and 35, disc ordering (Oct 2026).  For these, peeling the
+# complemented nilpotent normal subgroups inside [G,G] leaves a small H, and
+# the witnesses are composita of a field with group (almost) simple with the
+# cyclotomic field: no search needed.
+# 32T2801199/2801200/2801232 (C2^16.C3^7.A8.S3, .D6): d = 6, F = Q(sqrt-3);
+# O_2 = C2^16 and then C3^8 are complemented in [G,G], H = S8, C2 x A8, C2 x S8.
+32T2801199|disc|[-1,-4,-2,-4,0,-4,3,-2,1]|PARI-random-search (S8 octic, disc in -3 Q^2)|residual witness for G/M = S8 (M = C2^16.C3^8 complemented in [G,G]); Gal(K~/Q(sqrt-3)) = A8; expect b_witness = b_T = 3
+32T2801200|disc|[9,0,-12,-12,10,20,-4,-34,-7,0,28,10,6,-8,4,-2,1]|PARI compositum Q(sqrt-3) x (A8 octic x^8-2x^7+4x^5+2x^4+2x^3+4x^2+3)|residual witness for G/M = C2 x A8; Gal(K~/Q(sqrt-3)) = A8; expect b_witness = b_T = 3
+32T2801232|disc|[9,-12,25,-6,18,-7,28,-28,24,-27,-3,-3,13,0,-3,-1,1]|PARI compositum Q(sqrt-3) x (S8 octic x^8-x^7+4x^6-2x^5+x^4+3x^3-3x^2-4x+3)|residual witness for G/M = C2 x S8; Gal(K~/Q(sqrt-3)) = an S8 (the verifier tries the automorphisms of C2 x S8 swapping its two S8s); expect b_witness = b_T = 3
+# 35T248 (5^7:(4 x (2^3.PSL(3,2)))): d = 5, F = Q(zeta5); O_5 = C5^7 complemented,
+# H = C4 x E with E = 2^3.L3(2) (non-split, 14T33, perfect), H0 = E.  Witness:
+# Q(zeta5) x (LMFDB 14.2.4156382630830772224.3, Galois group 14T33), degree 56.
+35T248|disc|[4096,-4096,0,-55296,2048,319488,501760,722432,-3428864,-11293184,42123520,-34748160,191779584,-350737152,106074176,402079680,-482737408,172114880,63094016,-107933024,162133008,-195477144,93107176,89062584,-163051700,72472844,50981004,-80777570,26516283,23179849,-22601540,317122,9132756,-3567867,-1796393,883388,1010211,-547751,-592137,590105,36580,-283895,103959,61713,-56744,-871,17607,-7021,-751,1220,111,-225,16,24,-4,-3,1]|PARI compositum Q(zeta5) x LMFDB-14.2.4156382630830772224.3 (14T33)|residual witness for G/O5(G) = C4 x 2^3.L3(2) = 28T304; Gal(K~/Q(zeta5)) = 2^3.L3(2); expect b_witness = b_T = 2
