@@ -54,7 +54,7 @@ the existing quotient path of the verifier accepts.
 | `search_central_lift.py` | as above after removing a central C2 | 20T612 ([64,35]) |
 | `search_octic_kummer.py` | S4/A4 block quotient, elementary block kernel | 20T554 (48), 20T662 (96), 20T782/783/785/789 (192), 20T877/879/880/884 (384) |
 | `search_binary_octahedral.py` | `H = 2O` | 20T550 |
-| `search_kummer_fixed_field.py` | 2-block quotient a fixed field of (A4 or S4 closure)(sqrt 5, ...), any degree; `--exact-kummer` | 30T2400, 2418, 2467, 2778, 2843, 2848 (degree 24, orders 192/384); 30T3045, 3068, 3087, 3142, 3149, 3176 (768); 30T3440, 3442, 3459, 3463, 3482, 3501, 3539, 3561, 3565, 3588, 3632, 3641, 3647 (1536) |
+| `search_kummer_fixed_field.py` | 2-block quotient a fixed field of (A4 or S4 closure)(sqrt 5, ...), any degree; `--exact-kummer` | 30T2400, 2418, 2467, 2778, 2843, 2848 (degree 24, orders 192/384); 30T3045, 3068, 3087, 3142, 3149, 3176 (768); 30T3440, 3442, 3459, 3463, 3482, 3501, 3539, 3561, 3565, 3588, 3632, 3641, 3647 (1536); 30T3908, 3953 (3072) |
 | `search_norm_kummer.py` | sextic K (no closure needed), `N(delta)` in a prescribed class | 30T4059 (12T256 over an S5 sextic) |
 | `search_twisted_kummer.py` | `K(sqrt c)(sqrt(d mu))`, K an A5/S5/A6/S6 sextic, group exact by `gap/twisted_fiber_groups.g` | 30T4064, 4065, 4336, 4337, 4338, 4340, 4645, 4647, 4649, 4651, 4833, 4836, 4837, 4838 |
 
@@ -138,6 +138,25 @@ Example (30T3440 and 30T3588):
     python3 search_kummer_fixed_field.py --base "x^4-x^3-5*x^2+5*x+1" --quad 5 \
         --sub-order 4 --rank 5 --order 1536 --targets "A=3187:@1;3207:@1" \
         --exact-kummer --linear --exact-skip 12 --max 3000
+
+### Orders 3072: 30T3908 and 30T3953
+
+Block quotient C2^2 x S4 (12T48), P of degree 96.  Two things mattered.
+(1) The required H0 (signature position 2 of 24T5741 / 5733) is the only
+index-2 subgroup containing the block stabilizer, i.e. sqrt5 must lie in
+K12; `--contains-sqrt 5` keeps only those base fields (1 of 12).  Before that,
+24T5741 came out with sqrt5 at positions 6/7.  (2) The S-units of K12 have
+~100-digit coefficients (large regulator), so building K12(sqrt delta) for
+every candidate was hopeless: `--fast-frob` gets the Frobenius cycle types
+from delta mod the primes of K12 (`wslib.kummer_cycle_types`) and builds the
+polynomial only for the witness, and `--stat-only` skips the (very slow)
+exact Kummer computation for targets without statistical twins.  The H0
+screen ranks the index-2 subgroups by likelihood, since their supports can
+be nested.
+
+    python3 search_kummer_fixed_field.py --base "x^4-x^3-5*x^2+5*x+1" --quad 5,29 \
+        --sub-order 8 --rank 5 --order 3072 --targets "3908=5741:@2|3953=5733:@2" \
+        --exact-kummer --stat-only --fast-frob --linear --contains-sqrt 5
 
 ### Non-solvable leaves: A5, S5, A6, S6
 

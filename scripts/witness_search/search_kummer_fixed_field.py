@@ -44,6 +44,7 @@ Example (30T2778/2843, H = [384,5765] = 24T894/908, H0 = [192,197]):
       --sub-order 4 --rank 3 --order 384 --targets "894:192,197;908:192,197"
 """
 import argparse
+import math
 import random
 import sys
 import time
@@ -76,6 +77,17 @@ def main():
     ap.add_argument('--linear', action='store_true',
                     help='make the rank condition linear: for each r-dimensional submodule N of the permutation '
                          'module on the conjugates of K, search the classes killed by N^perp')
+    ap.add_argument('--fast-frob', action='store_true',
+                    help='Frobenius cycle types from delta mod primes of K (wslib.kummer_cycle_types) instead of '
+                         'a polynomial for K(sqrt delta); the polynomial is built only for the final witness. '
+                         'Use when the S-units of K are huge (large regulator)')
+    ap.add_argument('--stat-only', action='store_true',
+                    help='with --exact-kummer targets k:@p: accept a hit with no statistical twin that passes the '
+                         'H0 screen without the exact Kummer computation (slow when P is large); the group must '
+                         'then be confirmed by the Magma verifier')
+    ap.add_argument('--contains-sqrt', type=int, default=None,
+                    help='only base fields K containing sqrt(c) (e.g. 5 when H0 must contain the block '
+                         'stabilizer, i.e. sqrt q lies in K; see gap/block_local_conditions.g)')
     ap.add_argument('--only-base', default='', help='comma-separated 1-based indices of the base fields K to search')
     ap.add_argument('--seed', type=int, default=1)
     args = ap.parse_args()
@@ -160,6 +172,9 @@ def main():
     for bi, K in enumerate(bases, 1):
         if only and bi not in only:
             continue
+        if args.contains_sqrt is not None and not wslib.contains_sqrt(K, args.contains_sqrt):
+            print(f"K = {K}: does not contain sqrt({args.contains_sqrt}), skipped", flush=True)
+            continue
         Sprimes = sorted(base_S | {int(p) for p in pari.factor(abs(int(pari.nfdisc(K))))[0]})
         cd = wslib.ConjugateData(K, P, Sprimes, nprimes=12)
         r = len(cd.gens)
@@ -195,13 +210,22 @@ def main():
             if key in seen:
                 continue
             seen.add(key)
-            M = wslib.quadratic_extension(cd.Ky, cd.element(e), reduce=False)
-            if M is None:
-                continue
-            if wslib.quick_reject(M, support):
-                stats['screened'] = stats.get('screened', 0) + 1
-                continue
-            top = wslib.identify(M, args.order, 300)
+            delta = cd.element(e)
+            if args.fast_frob:
+                M = None
+                cnt = wslib.kummer_cycle_types(cd.Ky, delta, 60)
+                if any(c not in support for c in cnt):
+                    stats['screened'] = stats.get('screened', 0) + 1
+                    continue
+                top = wslib.identify_counts(wslib.kummer_cycle_types(cd.Ky, delta, 300), deg, args.order)
+            else:
+                M = wslib.quadratic_extension(cd.Ky, delta, reduce=False)
+                if M is None:
+                    continue
+                if wslib.quick_reject(M, support):
+                    stats['screened'] = stats.get('screened', 0) + 1
+                    continue
+                top = wslib.identify(M, args.order, 300)
             if not top:
                 continue
             k = top[0][1]
@@ -212,21 +236,35 @@ def main():
                     continue
                 # cheap screen for H0: Frobenius at primes split in Q(sqrt q) must lie in the required
                 # index-2 subgroup (tables/index2_subgroups_deg*.txt lists them in signature order)
+                stat_hit = False
                 need_k = next((tg[k] for _, tg in remaining if k in tg), None)
                 subs_k = wslib.tables(deg)[1].get(k)
                 if isinstance(need_k, tuple) and need_k[0] == '@' and subs_k and len(subs_k) >= need_k[1]:
-                    sup = subs_k[need_k[1] - 1][1]
-                    if any(c not in sup for c in wslib.frobenius_cycle_types(M, 150, split_in=args.q)):
+                    # supports can be nested, so rank all index-2 subgroups by log-likelihood
+                    fr = (wslib.kummer_cycle_types(cd.Ky, delta, 300, split_in=args.q) if M is None
+                          else wslib.frobenius_cycle_types(M, 300, split_in=args.q))
+                    ll = []
+                    for i_, (gid_, dist_) in enumerate(subs_k, 1):
+                        if all(c in dist_ for c in fr):
+                            ll.append((sum(n_ * math.log(dist_[c]) for c, n_ in fr.items()), i_))
+                    ll.sort(reverse=True)
+                    if not ll or ll[0][1] != need_k[1]:
                         stats['h0-screen'] = stats.get('h0-screen', 0) + 1
                         continue
-                gens, chi, rk = wslib.kummer_galois_group(K, P, cd.element(e), args.q)
-                res = wslib.gap_identify(gens, chi, 2 * len(cd.embs))
-                print(f"  exact (Kummer): {res}", flush=True)
-                parsed = parse_result(res)
-                if parsed is None or not accepted(parsed):
-                    stats['exact-reject'] = stats.get('exact-reject', 0) + 1
-                    streak[0] += 1
-                    continue
+                    twins = [kk for kk in dist_of if dist_of[kk] == dist_of[k]]
+                    stat_hit = args.stat_only and len(twins) == 1
+                if stat_hit:
+                    parsed = (k, None, need_k[1])
+                    print(f"  statistical hit 24T{k}, H0 screen passed (no exact check: --stat-only)", flush=True)
+                else:
+                    gens, chi, rk = wslib.kummer_galois_group(K, P, delta, args.q)
+                    res = wslib.gap_identify(gens, chi, 2 * len(cd.embs))
+                    print(f"  exact (Kummer): {res}", flush=True)
+                    parsed = parse_result(res)
+                    if parsed is None or not accepted(parsed):
+                        stats['exact-reject'] = stats.get('exact-reject', 0) + 1
+                        streak[0] += 1
+                        continue
             else:
                 if k not in targets:
                     continue
@@ -235,6 +273,8 @@ def main():
                     sub = wslib.quadratic_subgroup(M, k, args.q, 800)
                     if sub[0][0] is None or tuple(sub[0][1]) != need:
                         continue
+            if M is None:
+                M = wslib.quadratic_extension(cd.Ky, delta, reduce=False)
             M = pari.polredbest(M)
             top = wslib.identify(M, args.order, 2500)
             margin = top[0][0] - top[1][0] if len(top) > 1 else float('inf')
@@ -246,7 +286,8 @@ def main():
             if not args.exact_kummer:
                 return 0
             done = [lab for lab, tg in remaining if matches(parsed, tg)]
-            print(f"  group confirmed exactly by Kummer theory; target class {', '.join(done)}", flush=True)
+            how = 'statistically (H0 screen), not exactly' if stat_hit else 'exactly by Kummer theory'
+            print(f"  group confirmed {how}; target class {', '.join(done)}", flush=True)
             remaining[:] = [(lab, tg) for lab, tg in remaining if lab not in done]
             if not remaining:
                 return 0

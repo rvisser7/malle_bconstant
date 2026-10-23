@@ -243,6 +243,55 @@ def frobenius_cycle_types(f, nprimes, split_in=None, start=7):
     return cnt
 
 
+def kummer_cycle_types(Ky, delta, nprimes, split_in=None, start=7):
+    """Frobenius cycle types of L = K(sqrt delta) (degree 2 deg K) without
+    computing a polynomial for L: for each unramified p and each prime of K
+    above p (an irreducible factor h of K mod p, degree f), L contributes two
+    f-cycles if delta is a square mod (p, h) and one 2f-cycle otherwise.
+    Cheap even when delta has huge coefficients (they are reduced mod p)."""
+    Kx = pari.subst(Ky, 'y', 'x')
+    dpol = pari.subst(pari.lift(delta), 'y', 'x')
+    den = int(pari.denominator(dpol))
+    lc = int(pari.pollead(Kx))
+    cnt, p, n = collections.Counter(), start, 0
+    while n < nprimes:
+        p = int(pari.nextprime(p + 1))
+        if lc % p == 0 or den % p == 0:
+            continue
+        if split_in is not None and pari.kronecker(split_in, p) != 1:
+            continue
+        fa = pari.factormod(Kx, p)
+        if any(int(m) > 1 for m in fa[1]):
+            continue
+        dp = dpol * pari.Mod(1, p)
+        degs, ok = [], True
+        for j in range(len(fa[0])):
+            h = fa[0][j]
+            f = int(pari.poldegree(h))
+            v = pari.Mod(dp, h)
+            if v == 0:
+                ok = False
+                break
+            sq = v ** ((p ** f - 1) // 2) == 1
+            degs += [f, f] if sq else [2 * f]
+        if not ok:
+            continue
+        cnt[tuple(sorted(degs))] += 1
+        n += 1
+    return cnt
+
+
+def identify_counts(cnt, degree, order):
+    """identify() for a precomputed Counter of cycle types."""
+    groups, _ = tables(degree)
+    res = []
+    for k, sz, gid, dist in groups:
+        if sz != order or any(c not in dist for c in cnt):
+            continue
+        res.append((sum(n * math.log(dist[c]) for c, n in cnt.items()), k, gid))
+    return sorted(res, reverse=True)
+
+
 def identify(f, order, nprimes=1500):
     """Rank the transitive groups of degree deg(f) and the given order by the
     log-likelihood of f's Frobenius cycle types.  Groups whose class support
