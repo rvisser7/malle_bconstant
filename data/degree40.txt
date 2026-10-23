@@ -272728,7 +272728,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 40T272725|4|4|4|0|\N|\N|\N|\N
 40T272726|4|4|4|0|\N|\N|\N|\N
 40T272727|4|4|4|0|\N|\N|\N|\N
-40T272728|\N|\N|\N|\N|\N|\N|\N|\N
+40T272728|8|8|8|0|\N|\N|\N|\N
 40T272729|8|8|8|0|\N|\N|\N|\N
 40T272730|8|8|8|0|\N|\N|\N|\N
 40T272731|8|8|8|0|\N|\N|\N|\N
