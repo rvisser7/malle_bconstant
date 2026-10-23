@@ -55,6 +55,8 @@ the existing quotient path of the verifier accepts.
 | `search_octic_kummer.py` | S4/A4 block quotient, elementary block kernel | 20T554 (48), 20T662 (96), 20T782/783/785/789 (192), 20T877/879/880/884 (384) |
 | `search_binary_octahedral.py` | `H = 2O` | 20T550 |
 | `search_kummer_fixed_field.py` | 2-block quotient a fixed field of (A4 or S4 closure)(sqrt 5, ...), any degree; `--exact-kummer` | 30T2400, 2418, 2467, 2778, 2843, 2848 (degree 24, orders 192/384); 30T3045, 3068, 3087, 3142, 3149, 3176 (768); 30T3440, 3442, 3459, 3463, 3482, 3501, 3539, 3561, 3565, 3588, 3632, 3641, 3647 (1536) |
+| `search_norm_kummer.py` | sextic K (no closure needed), `N(delta)` in a prescribed class | 30T4059 (12T256 over an S5 sextic) |
+| `search_twisted_kummer.py` | `K(sqrt c)(sqrt(d mu))`, K an A5/S5/A6/S6 sextic, group exact by `gap/twisted_fiber_groups.g` | 30T4064, 4065, 4336, 4337, 4338, 4340, 4645, 4647, 4649, 4651, 4833, 4836, 4837, 4838 |
 
 Each script's docstring has the exact command line that found the committed
 witness.  Typical run times on one core: seconds (abelian base), 1-5 minutes
@@ -137,6 +139,33 @@ Example (30T3440 and 30T3588):
         --sub-order 4 --rank 5 --order 1536 --targets "A=3187:@1;3207:@1" \
         --exact-kummer --linear --exact-skip 12 --max 3000
 
+### Non-solvable leaves: A5, S5, A6, S6
+
+For the 15 leaves with H/O_2(H) = A5, S5, A6 or S6 the closures are far too
+big for PARI.  Here the witness is built so that its group is known by
+construction.  Take a sextic K6 with the right group and the field
+L = K6(sqrt 5)(sqrt(d mu)): d in K6 with N(d) in a prescribed class
+(1, 5, disc K6 or 5 disc K6), mu = (5 + sqrt 5)/2, so Q(sqrt 5, sqrt mu) is
+cyclic quartic and its generator lifts to the central C4 of H.  L lies in
+the compositum of the closure of K6(sqrt d) (a subgroup of C2 wr B
+determined by the norm class) and the cyclic quartic field.  Its group is
+the fibre product computed in `gap/twisted_fiber_groups.g`, which also
+tabulates which norm class gives which 24Tk, e.g. for S6:
+N(d) in Q^2 -> 24T14623 (30T4836), disc -> 14626 (4838), 5 disc -> 14620 (4837),
+5 -> 14617 (4833).  The statistics of `search_twisted_kummer.py` only confirm
+(24T7242/7243/7246 are exact twins).  30T4059 is the degree-12 case
+K6(sqrt d) itself (12T256, the non-split extension, needs N(d) in disc Q^2 =
+5 Q^2).  Not every sextic works: the norm map of some sextics misses the
+class needed (the script then says so); another sextic fixes that.
+
+### Orders 3072 and the H0 screen
+
+`tables/index2_subgroups_deg24.txt` lists the index-2 subgroups of the
+relevant groups in signature order, so with targets `k:@p` the search first
+checks that the Frobenius cycle types at primes split in Q(sqrt q) lie in the
+p-th subgroup (cheap) before the exact Kummer computation (slow when P has
+degree 96).
+
 ## Files
 
 * `wslib.py`: shared code (S-units, Legendre coordinates, F2 algebra,
@@ -145,8 +174,10 @@ Example (30T3440 and 30T3588):
 * `gap/local_lift.g`: local liftability tables (with the two examples above).
 * `gap/block_local_conditions.g`: local conditions for a 2-block target
   (degree-30 O_5 family).
-* `gap/cycle_types.g`, `gap/cycle_types_deg24.g`: regenerate `tables/*.txt`.
+* `gap/twisted_fiber_groups.g`: exact groups for `search_twisted_kummer.py`.
+* `gap/cycle_types.g`, `gap/cycle_types_deg12.g`, `gap/cycle_types_deg24.g`:
+  regenerate `tables/*.txt`.
 * `tables/cycle_types_deg16.txt`, `tables/index2_subgroups_deg16.txt`:
   cycle-type distributions of degree-16 transitive groups of orders 32, 48,
-  64, 96, 192, 384 (and `*_deg24.txt`: degree 24, orders 192, 384, 768 and
-  1536), and of the index-2 subgroups of the relevant ones.
+  64, 96, 192, 384 (`*_deg24.txt`: degree 24, orders 192 to 46080 used by the O_5
+  family; `cycle_types_deg12.txt`: all degree-12 groups), and of the index-2 subgroups of the relevant ones.

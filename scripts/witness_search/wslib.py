@@ -28,7 +28,7 @@ pari.allocatemem(2 * 10**9)
 HERE = os.path.dirname(os.path.abspath(__file__))
 TABLES = os.path.join(HERE, "tables")
 
-_legendre_vec = pari('(f,R,p)->[kronecker(lift(Mod(subst(f,x,r),p)),p) | r<-R]')
+_legendre_vec = pari('(f,R,p)->my(fp=f*Mod(1,p));[kronecker(lift(subst(fp,x,Mod(r,p))),p) | r<-R]')
 _subgroup_order = pari('(H)->vecprod(Vec(H[2]))')
 
 
@@ -366,7 +366,7 @@ class ConjugateData:
         self.gens = sunit_generators(self.Ky, Sprimes)
         self.embs = pari.nfisincl(K, P)
         NP, ne = int(pari.poldegree(P)), len(self.embs)
-        imgs = [[pari.lift(pari.Mod(pari.subst(g, 'y', e), P)) for e in self.embs] for g in self.gens]
+        imgs = [[pari.lift(pari.subst(g, 'y', pari.Mod(e, P))) for e in self.embs] for g in self.gens]   # reduce mod P while evaluating
         blocks, p, used, disc = [], 2, 0, int(pari.poldisc(P))
         while used < nprimes:
             p = int(pari.nextprime(p + 1))
@@ -376,9 +376,13 @@ class ConjugateData:
             if len(R) != NP:
                 continue
             R = pari.lift(R)
+            try:
+                blk = np.array([[[0 if int(v) == 1 else 1 for v in _legendre_vec(imgs[j][i], R, p)]
+                                 for i in range(ne)] for j in range(len(self.gens))], dtype=np.uint8)
+            except cypari2.PariError:                   # p divides a denominator of some conjugate
+                continue
             used += 1
-            blocks.append(np.array([[[0 if int(v) == 1 else 1 for v in _legendre_vec(imgs[j][i], R, p)]
-                                     for i in range(ne)] for j in range(len(self.gens))], dtype=np.uint8))
+            blocks.append(blk)
         self.A = np.concatenate(blocks, axis=2)
 
     def conjugate_rank(self, e):

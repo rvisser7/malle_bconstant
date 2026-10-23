@@ -6,10 +6,11 @@
 # Writes ../tables/cycle_types_deg24.txt and ../tables/index2_subgroups_deg24.txt
 # in the same format as the degree-16 tables (see cycle_types.g).
 LoadPackage("transgrp");; LoadPackage("smallgrp");;
-ORDERS := [192, 384, 768, 1536];
+ORDERS := [192, 384, 768, 1536, 3072, 3840, 7680, 23040, 46080];
 # IdGroup is not available for order 768; those rows get [768, 0].
 SafeId := G -> function() if IdGroupsAvailable(Size(G)) then return IdGroup(G); else return [Size(G), 0]; fi; end;
-SUBS_FOR := [298, 301, 309, 310, 312, 791, 894, 898, 904, 908, 1575, 1582, 1585, 1588, 1593, 1594];
+SUBS_FOR := [298, 301, 309, 310, 312, 791, 894, 898, 904, 908, 1575, 1582, 1585, 1588, 1593, 1594,
+             2990, 2999, 3118, 3147, 3168, 3187, 3207, 3224, 5431, 5733, 5741];
 dir := "../tables/";
 out := OutputTextFile(Concatenation(dir, "cycle_types_deg24.txt"), false);
 SetPrintFormattingStatus(out, false);
@@ -26,10 +27,14 @@ out := OutputTextFile(Concatenation(dir, "index2_subgroups_deg24.txt"), false);
 SetPrintFormattingStatus(out, false);
 for k in SUBS_FOR do
   G := TransitiveGroup(24, k);
-  for S in Filtered(NormalSubgroups(G), S -> Index(G, S) = 2) do
-    dist := List(ConjugacyClasses(S),
-                 c -> [SortedList(CycleLengths(Representative(c), [1..24])), Size(c)]);
-    AppendTo(out, k, "|", SafeId(S)(), "|", dist, "\n");
+  # rows in the order of the signature positions of wslib.gap_identify
+  # (index-2 subgroups sorted by their sorted list of [cycle type, class size])
+  subs := Filtered(NormalSubgroups(G), S -> Index(G, S) = 2);
+  sigs := List(subs, S -> SortedList(List(ConjugacyClasses(S),
+                 c -> [SortedList(CycleLengths(Representative(c), [1..24])), Size(c)])));
+  SortParallel(sigs, subs);
+  for i in [1 .. Length(subs)] do
+    AppendTo(out, k, "|", SafeId(subs[i])(), "|", sigs[i], "\n");
   od;
 od;
 CloseStream(out);

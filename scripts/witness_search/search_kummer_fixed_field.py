@@ -210,6 +210,15 @@ def main():
                 # statistics cannot separate twins: gate on the twin class, decide exactly
                 if k not in gate:
                     continue
+                # cheap screen for H0: Frobenius at primes split in Q(sqrt q) must lie in the required
+                # index-2 subgroup (tables/index2_subgroups_deg*.txt lists them in signature order)
+                need_k = next((tg[k] for _, tg in remaining if k in tg), None)
+                subs_k = wslib.tables(deg)[1].get(k)
+                if isinstance(need_k, tuple) and need_k[0] == '@' and subs_k and len(subs_k) >= need_k[1]:
+                    sup = subs_k[need_k[1] - 1][1]
+                    if any(c not in sup for c in wslib.frobenius_cycle_types(M, 150, split_in=args.q)):
+                        stats['h0-screen'] = stats.get('h0-screen', 0) + 1
+                        continue
                 gens, chi, rk = wslib.kummer_galois_group(K, P, cd.element(e), args.q)
                 res = wslib.gap_identify(gens, chi, 2 * len(cd.embs))
                 print(f"  exact (Kummer): {res}", flush=True)
