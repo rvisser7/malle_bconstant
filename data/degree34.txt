@@ -89,7 +89,7 @@ text|smallint|smallint|smallint|smallint|smallint|smallint|smallint|smallint
 34T86|1|1|1|0|61|73|\N|\N
 34T87|1|1|1|0|45|92|\N|\N
 34T88|1|1|1|0|72|92|\N|\N
-34T89|1|1|1|0|\N|\N|\N|\N
+34T89|1|1|1|0|50|60|\N|4
 34T90|1|1|1|0|54|60|\N|\N
 34T91|1|1|1|0|94|105|\N|\N
 34T92|1|1|1|0|77|93|\N|\N
